@@ -12,7 +12,7 @@ The Community gateway is in good shape for day-to-day use: OpenAI-compatible pro
 
 Still in progress:
 
-- Detection packs (Wazuh, Sigma, Grafana) in [AIWall-detections](https://github.com/MohsenBah/AIWall-detections)
+- Detection packs (Wazuh, Sigma, Grafana) in [AIWall-detections](https://github.com/MohsenBah/AIWall-detections) — audit JSONL schema (`aiwall.audit.v1`) is frozen first
 - Red-team payloads and regression checks in [AIWall-redteam](https://github.com/MohsenBah/AIWall-redteam)
 
 ## What AIWall does
@@ -176,6 +176,7 @@ Tune providers and policies in `aiwall.yaml`. Deeper reading:
 - [docs/configuration.md](docs/configuration.md) — schema
 - [docs/secret-scanning.md](docs/secret-scanning.md) — detectors
 - [docs/agent-guardrails.md](docs/agent-guardrails.md) — tool / shell / file guardrails
+- [docs/audit-export.md](docs/audit-export.md) — SIEM JSONL (`aiwall.audit.v1`)
 - [docs/architecture.md](docs/architecture.md) — request flow
 
 ## Contributing

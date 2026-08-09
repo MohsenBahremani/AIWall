@@ -16,6 +16,7 @@ from app.agents.approval_models import APPROVAL_APPROVED, APPROVAL_DENIED
 from app.agents.approval_store import ApprovalError
 from app.agents.types import KNOWN_ACTION_TYPES
 from app.policies.overrides import set_policy_enabled
+from app.reports.audit_jsonl import export_to_jsonl
 from app.reports.export import (
     DEFAULT_EXPORT_LIMIT,
     ExportFilters,
@@ -300,6 +301,32 @@ def create_web_router(templates: Jinja2Templates) -> APIRouter:
         return Response(
             content=body,
             media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @router.get("/events/export.jsonl")
+    async def events_export_jsonl(
+        request: Request,
+        decision: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+        profile: str | None = None,
+        window_hours: int = 24,
+    ) -> Response:
+        """Stable SIEM feed: one ``aiwall.audit.v1`` object per line."""
+        report = _build_filtered_export(
+            request,
+            decision=decision,
+            provider=provider,
+            model=model,
+            profile=profile,
+            window_hours=window_hours,
+        )
+        body = export_to_jsonl(report)
+        filename = f"aiwall-audit-{report.exported_at.strftime('%Y%m%d-%H%M%S')}.jsonl"
+        return Response(
+            content=body,
+            media_type="application/x-ndjson; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 

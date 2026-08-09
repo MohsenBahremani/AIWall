@@ -12,6 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 
 from app.audit.writer import AuditEvent, AuditWriter
+from app.reports.audit_jsonl import AUDIT_SCHEMA_ID, export_to_jsonl
 from app.reports.export import (
     ExportFilters,
     build_event_export,
@@ -127,6 +128,43 @@ def test_build_event_export_truncated_uses_db_summary(tmp_path: Path) -> None:
     assert report.summary.decision_counts["block"] == 2
 
 
+def test_export_to_jsonl_is_ndjson_audit_v1(tmp_path: Path) -> None:
+    writer = _writer(tmp_path)
+    now = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
+    writer.write(
+        AuditEvent(
+            request_id="sec-1",
+            provider="openai",
+            model="gpt-4o-mini",
+            decision="block",
+            reason="secret-detected",
+            input_length=40,
+            output_length=0,
+            latency_ms=2.0,
+            policy_id="block-secrets",
+            matched_rule_ids="aws-access-key,github-token",
+            categories="secret",
+            timestamp=now,
+        )
+    )
+    writer.write(
+        _event(request_id="ok-1", decision="allow", timestamp=now)
+    )
+
+    report = build_event_export(writer, ExportFilters(window_hours=24), now=now)
+    text = export_to_jsonl(report)
+    lines = [line for line in text.splitlines() if line.strip()]
+    assert len(lines) == 2
+    events = [json.loads(line) for line in lines]
+    assert all(event["schema"] == AUDIT_SCHEMA_ID for event in events)
+    blocked = next(event for event in events if event["request_id"] == "sec-1")
+    assert blocked["matched_rule_ids"] == ["aws-access-key", "github-token"]
+    assert blocked["categories"] == ["secret"]
+    assert "raw_prompt" not in blocked
+    allowed = next(event for event in events if event["request_id"] == "ok-1")
+    assert allowed["matched_rule_ids"] == []
+
+
 @pytest.mark.asyncio
 async def test_events_export_endpoints_respect_filters(
     tmp_path: Path,
@@ -173,6 +211,10 @@ async def test_events_export_endpoints_respect_filters(
             "/events/export.csv",
             params={"decision": "block", "window_hours": 24},
         )
+        jsonl_resp = await client.get(
+            "/events/export.jsonl",
+            params={"decision": "block", "window_hours": 24},
+        )
 
     assert page.status_code == 200
     assert "/events/export.json?" in page.text
@@ -193,5 +235,15 @@ async def test_events_export_endpoints_respect_filters(
     assert "attachment" in csv_resp.headers.get("content-disposition", "")
     assert "decision.block" in csv_resp.text
     assert "block-long-input" in csv_resp.text
+
+    assert jsonl_resp.status_code == 200
+    assert "ndjson" in jsonl_resp.headers.get("content-type", "")
+    assert "attachment" in jsonl_resp.headers.get("content-disposition", "")
+    jsonl_lines = [line for line in jsonl_resp.text.splitlines() if line.strip()]
+    assert len(jsonl_lines) == 1
+    event = json.loads(jsonl_lines[0])
+    assert event["schema"] == AUDIT_SCHEMA_ID
+    assert event["decision"] == "block"
+    assert "raw_prompt" not in event
 
     await http_client.aclose()

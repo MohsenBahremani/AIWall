@@ -74,6 +74,7 @@ Blocked requests never reach the upstream provider. Redacted requests reach the 
 | `/events` | GET | Event log explorer — filters, pagination, detail |
 | `/events/export.json` | GET | Download filtered events + summary as JSON (same query filters as `/events`) |
 | `/events/export.csv` | GET | Download filtered events + summary as CSV (same query filters as `/events`) |
+| `/events/export.jsonl` | GET | Stable SIEM feed — one `aiwall.audit.v1` object per line (see [audit-export.md](audit-export.md)) |
 | `/settings` | GET | Settings — providers (read-only), retention, raw-prompt opt-in |
 | `/settings/logging/raw-prompts` | POST | Toggle `logging.log_raw_prompts` via `settings-overrides.yaml` |
 | `/settings/logging/retention` | POST | Set `logging.retention_days` and purge expired audit rows |
