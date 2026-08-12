@@ -8,9 +8,9 @@ AIWall sits between your apps and AI providers. You get visibility, policy enfor
 
 ## Where things stand
 
-The Community gateway is in good shape for day-to-day use: OpenAI-compatible proxy, policies, secret scanning, family profiles, the control panel, alerts, and agent tool guardrails (shell/file risk + approve/deny).
+**Ready for day-to-day use:** OpenAI-compatible proxy, policies, secret scanning, family profiles, control panel, alerts, and agent tool guardrails (shell/file risk + approve/deny).
 
-Still in progress:
+**Still in progress:**
 
 - Detection packs (Wazuh, Sigma, Grafana) in [AIWall-detections](https://github.com/MohsenBah/AIWall-detections) — audit JSONL schema (`aiwall.audit.v1`) is frozen first
 - Red-team payloads and regression checks in [AIWall-redteam](https://github.com/MohsenBah/AIWall-redteam)
@@ -21,10 +21,10 @@ Still in progress:
 - Scans for secrets — API keys, tokens, SSH keys, pasted `.env` content, before they hit a provider
 - Enforces policies — allow, warn, block, or redact; toggle from the GUI
 - Guards agent tools — scores shell commands, flags sensitive file access, holds risky actions for approve/deny
-- Control panel — dashboard, event log, usage, cost, policies, agent approvals
-- Alerts — Telegram, webhook, or ntfy when something risky is blocked (or held for approval)
-- Audit log — privacy-preserving by default; raw prompts only if you opt in
-- Cost tracking — tokens and estimated spend by provider and model
+- Serves a control panel — dashboard, event log, usage, cost, policies, agent approvals
+- Sends alerts — Telegram, webhook, or ntfy when something risky is blocked (or held for approval)
+- Writes an audit log — privacy-preserving by default; raw prompts only if you opt in
+- Tracks cost — tokens and estimated spend by provider and model
 
 ## What AIWall does not do
 
