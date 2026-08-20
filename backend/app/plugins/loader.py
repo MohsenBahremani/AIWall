@@ -13,6 +13,7 @@ from app.plugins.base import AIWallPlugin, PluginInfo
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
+    from app.alerts.registry import AlertNotifierRegistry
     from app.config import AIWallConfig
 
 logger = logging.getLogger(__name__)
