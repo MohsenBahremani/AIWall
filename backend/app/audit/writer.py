@@ -635,6 +635,7 @@ class AuditWriter:
         user_id: str,
         *,
         since: datetime,
+        until: datetime | None = None,
         decisions: frozenset[str] | set[str] | None = None,
     ) -> ProfileUsage:
         """Aggregate billable usage for a profile since ``since`` (UTC)."""
@@ -645,6 +646,8 @@ class AuditWriter:
                 AuditEventRow.user_id == user_id,
                 AuditEventRow.timestamp >= since,
             ]
+            if until is not None:
+                filters.append(AuditEventRow.timestamp < until)
             if decisions is not None:
                 filters.append(AuditEventRow.decision.in_(tuple(decisions)))
 
@@ -672,17 +675,22 @@ class AuditWriter:
         user_id: str,
         *,
         since: datetime,
+        until: datetime | None = None,
     ) -> dict[str, int]:
         """Per-decision event counts for a profile since ``since`` (UTC)."""
         from sqlalchemy import func, select
 
+        filters = [
+            AuditEventRow.user_id == user_id,
+            AuditEventRow.timestamp >= since,
+        ]
+        if until is not None:
+            filters.append(AuditEventRow.timestamp < until)
+
         with self._session_factory() as session:
             stmt = (
                 select(AuditEventRow.decision, func.count())
-                .where(
-                    AuditEventRow.user_id == user_id,
-                    AuditEventRow.timestamp >= since,
-                )
+                .where(*filters)
                 .group_by(AuditEventRow.decision)
             )
             return {decision: int(count) for decision, count in session.execute(stmt)}
@@ -691,6 +699,7 @@ class AuditWriter:
         self,
         *,
         since: datetime | None = None,
+        until: datetime | None = None,
         user_id: str | None = None,
     ) -> dict[str | None, dict[str, int]]:
         """Per-profile counts of category-tagged events: ``{user_id: {category: count}}``.
@@ -705,6 +714,8 @@ class AuditWriter:
             )
             if since is not None:
                 stmt = stmt.where(AuditEventRow.timestamp >= since)
+            if until is not None:
+                stmt = stmt.where(AuditEventRow.timestamp < until)
             if user_id is not None:
                 stmt = stmt.where(AuditEventRow.user_id == user_id)
             rows = session.execute(stmt).all()

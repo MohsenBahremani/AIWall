@@ -23,3 +23,16 @@ def test_load_config_defaults_when_missing(tmp_path: Path) -> None:
     assert config.server.port == 8080
     assert config.providers == []
     assert config.policies == []
+
+
+def test_load_config_coerces_null_scanner_rules(tmp_path: Path) -> None:
+    config_path = tmp_path / "aiwall.yaml"
+    config_path.write_text(
+        """
+scanners:
+  rules:
+    # comment-only block parses as null in PyYAML
+""".strip()
+    )
+    config = load_config(config_path)
+    assert config.scanners.rules == {}

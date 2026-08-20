@@ -62,14 +62,22 @@ def build_weekly_report(
     else:
         window_end = window_end.astimezone(UTC)
     window_start = window_end - timedelta(days=days)
+    window_until = window_end + timedelta(microseconds=1)
 
-    category_by_user = audit_writer.category_summary(since=window_start)
+    category_by_user = audit_writer.category_summary(
+        since=window_start,
+        until=window_until,
+    )
     summaries: list[ProfileWeeklySummary] = []
 
     for profile in profile_store.list():
         user_id = str(profile.id)
-        decisions = audit_writer.decision_counts_for_user(user_id, since=window_start)
-        usage = audit_writer.usage_for_user(user_id, since=window_start)
+        decisions = audit_writer.decision_counts_for_user(
+            user_id, since=window_start, until=window_until
+        )
+        usage = audit_writer.usage_for_user(
+            user_id, since=window_start, until=window_until
+        )
         categories = dict(sorted((category_by_user.get(user_id) or {}).items()))
         summaries.append(
             ProfileWeeklySummary(

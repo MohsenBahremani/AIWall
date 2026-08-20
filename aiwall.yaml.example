@@ -56,12 +56,13 @@ scanners:
   allowlist:
     literals: []
     patterns: []
-  rules:
-    # Example: disable JWT detection or raise min length for generic keys
-    # jwt:
-    #   enabled: false
-    # generic-api-key:
-    #   min_length: 24
+  # Per-rule overrides (enabled, min_length). Example:
+  # rules:
+  #   jwt:
+  #     enabled: false
+  #   generic-api-key:
+  #     min_length: 24
+  rules: {}
 
 # Optional: require clients to present an AIWall-issued API key (off by default).
 # gateway_auth:

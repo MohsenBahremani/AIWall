@@ -173,6 +173,7 @@ def load_config(path: Path | str | None = None) -> AIWallConfig:
         raw: Any = yaml.safe_load(config_file) or {}
 
     _normalize_yaml_alert_keys(raw)
+    _normalize_yaml_null_dicts(raw)
 
     config = AIWallConfig.model_validate(raw)
     if config.presets:
@@ -205,6 +206,17 @@ def load_config(path: Path | str | None = None) -> AIWallConfig:
     if settings_overrides:
         config = apply_settings_overrides(config, settings_overrides)
     return config
+
+
+def _normalize_yaml_null_dicts(raw: Any) -> None:
+    """PyYAML maps comment-only mappings like ``rules:`` to ``null``."""
+    if not isinstance(raw, dict):
+        return
+    scanners = raw.get("scanners")
+    if not isinstance(scanners, dict):
+        return
+    if scanners.get("rules") is None:
+        scanners["rules"] = {}
 
 
 def _normalize_yaml_alert_keys(raw: Any) -> None:
