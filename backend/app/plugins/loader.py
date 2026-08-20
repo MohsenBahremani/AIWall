@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2026 Mohsen Bah
+# SPDX-License-Identifier: Apache-2.0
+"""Discover and register setuptools entry-point plugins."""
+
+from __future__ import annotations
+
+import logging
+from importlib.metadata import entry_points
+from typing import TYPE_CHECKING
+
+from app.plugins.base import AIWallPlugin, PluginInfo
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+
+    from app.config import AIWallConfig
+
+logger = logging.getLogger(__name__)
+
+ENTRY_POINT_GROUP = "aiwall.plugins"
+
+
+def _iter_entry_points():
+    try:
+        return entry_points(group=ENTRY_POINT_GROUP)
+    except TypeError:
+        # Python < 3.10 fallback (not expected for AIWall, but defensive)
+        return entry_points().get(ENTRY_POINT_GROUP, ())
+
+
+def discover_plugins() -> list[AIWallPlugin]:
+    """Load all plugins registered under ``aiwall.plugins`` entry points."""
+    plugins: list[AIWallPlugin] = []
+    for ep in sorted(_iter_entry_points(), key=lambda item: item.name):
+        try:
+            loaded = ep.load()
+        except Exception:
+            logger.exception("Failed to import plugin entry point %r", ep.name)
+            continue
+        try:
+            plugin = loaded() if callable(loaded) else loaded
+        except Exception:
+            logger.exception("Failed to instantiate plugin entry point %r", ep.name)
+            continue
+        if not isinstance(plugin, AIWallPlugin):
+            logger.error(
+                "Plugin entry point %r returned %r; expected AIWallPlugin",
+                ep.name,
+                type(plugin),
+            )
+            continue
+        plugins.append(plugin)
+        logger.info(
+            "Loaded plugin %s v%s (%s)",
+            plugin.info.name,
+            plugin.info.version,
+            plugin.info.edition,
+        )
+    return plugins
+
+
+def register_plugins(
+    app: FastAPI,
+    config: AIWallConfig,
+    plugins: list[AIWallPlugin],
+) -> list[PluginInfo]:
+    """Register plugins on the app and return loaded metadata."""
+    loaded: list[PluginInfo] = []
+    for plugin in plugins:
+        plugin.register(app, config=config)
+        loaded.append(plugin.info)
+    app.state.plugins = loaded
+    return loaded

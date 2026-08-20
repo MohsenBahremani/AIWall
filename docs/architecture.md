@@ -60,6 +60,7 @@ Blocked requests never reach the upstream provider. Redacted requests reach the 
 | `app/reports/` | Family usage reports (weekly per-profile summary) |
 | `app/alerts/` | Pluggable alert dispatcher and channel notifiers |
 | `app/web/` | Server-rendered dashboard (Jinja2 + HTMX) |
+| `app/plugins/` | Entry-point loader for Pro/Enterprise extensions (Phase 8.1) |
 | `deploy/examples/` | Docker Compose templates (default + Open WebUI family stack) |
 | `app/config.py` | Pydantic models for `aiwall.yaml` |
 
@@ -69,7 +70,7 @@ Blocked requests never reach the upstream provider. Redacted requests reach the 
 |---|---|---|
 | `/v1/chat/completions` | POST | OpenAI-compatible proxy (streaming and non-streaming) |
 | `/v1/models` | GET | Models from configured providers (OpenAI list shape) |
-| `/healthz` | GET | Liveness, version, provider/policy counts |
+| `/healthz` | GET | Liveness, version, provider/policy counts; optional `plugins` when Pro modules load |
 | `/` | GET | Dashboard — summary cards, usage trends, and recent events |
 | `/events` | GET | Event log explorer — filters, pagination, detail |
 | `/events/export.json` | GET | Download filtered events + summary as JSON (same query filters as `/events`) |
@@ -123,6 +124,8 @@ http://<aiwall-host>:8080/v1
 Raw prompts and responses are **not** stored unless `logging.log_raw_prompts: true`. When enabled, any detected secrets are masked as `[REDACTED:<rule_id>]` before persistence. Block responses list matched `rule_ids` and never echo the raw secret.
 
 Secret detector inventory and the positive/negative test corpus are documented in [secret-scanning.md](secret-scanning.md).
+
+Pro/Enterprise extensions load via setuptools entry points — see [plugins.md](plugins.md).
 
 ## Deployment
 

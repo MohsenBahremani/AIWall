@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from app.alerts import RecordingNotifier, build_alert_dispatcher
 from app.alerts.heartbeat import HeartbeatMonitor
 from app.audit.writer import AuditWriter
 from app.config import AIWallConfig, load_config, resolve_config_path
+from app.plugins.base import AIWallPlugin
+from app.plugins.loader import discover_plugins, register_plugins
 from app.policies.engine import PolicyEngine
 from app.profiles.store import ProfileStore
 from app.proxy.pricing import CostEstimator, resolve_prices_path
@@ -44,6 +47,7 @@ def create_app(
     http_client: httpx.AsyncClient | None = None,
     *,
     recording_notifier: RecordingNotifier | None = None,
+    plugins: Sequence[AIWallPlugin] | None = None,
 ) -> FastAPI:
     resolved_path = resolve_config_path(config_path)
     config = load_config(resolved_path)
@@ -135,11 +139,23 @@ def create_app(
         heartbeat = getattr(app.state, "heartbeat", None)
         if isinstance(heartbeat, HeartbeatMonitor):
             payload["unhealthy_providers"] = sorted(heartbeat.unhealthy_providers)
+        plugin_meta = getattr(app.state, "plugins", None)
+        if plugin_meta:
+            payload["plugins"] = [
+                {
+                    "name": item.name,
+                    "version": item.version,
+                    "edition": item.edition,
+                }
+                for item in plugin_meta
+            ]
         return payload
 
     app.include_router(proxy_router)
     app.include_router(create_approvals_router())
     _register_web(app)
+    resolved_plugins = list(plugins) if plugins is not None else discover_plugins()
+    register_plugins(app, config, resolved_plugins)
     return app
 
 

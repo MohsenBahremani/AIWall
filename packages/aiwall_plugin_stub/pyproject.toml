@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiwall-plugin-stub"
+version = "0.0.1"
+description = "Dev/test plugin stub for aiwall.plugins entry points (not commercial Pro)."
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "fastapi>=0.115.0",
+]
+
+[project.entry-points."aiwall.plugins"]
+stub = "aiwall_plugin_stub:plugin_factory"
+
+[tool.setuptools.packages.find]
+where = ["."]
