@@ -114,3 +114,16 @@ alerts:
     assert any(event.reason == "secret-detected" for event in recorder.events)
     assert secret not in str(recorder.events)
     await http_client.aclose()
+
+
+def test_build_alert_dispatcher_supports_plugin_channel() -> None:
+    from app.alerts.registry import AlertNotifierRegistry
+
+    registry = AlertNotifierRegistry()
+    recorder = RecordingNotifier()
+    registry.register("custom", lambda _entry, _ctx: recorder)
+    config = AIWallConfig(
+        alerts=[AlertChannelConfig(channel="custom", on=["secret_blocked"])]
+    )
+    dispatcher = build_alert_dispatcher(config, extra_notifiers=registry)
+    assert dispatcher.channel_count == 1

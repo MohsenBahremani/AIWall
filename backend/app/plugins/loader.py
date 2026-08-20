@@ -71,3 +71,26 @@ def register_plugins(
         loaded.append(plugin.info)
     app.state.plugins = loaded
     return loaded
+
+
+def collect_alert_notifiers(
+    plugins: list[AIWallPlugin],
+    *,
+    config: AIWallConfig,
+) -> AlertNotifierRegistry:
+    """Ask plugins to register custom alert channel factories."""
+    from app.alerts.registry import AlertNotifierRegistry
+
+    registry = AlertNotifierRegistry()
+    for plugin in plugins:
+        hook = getattr(plugin, "register_alert_notifiers", None)
+        if not callable(hook):
+            continue
+        try:
+            hook(registry, config=config)
+        except Exception:
+            logger.exception(
+                "Plugin %s failed register_alert_notifiers",
+                getattr(getattr(plugin, "info", None), "name", plugin),
+            )
+    return registry

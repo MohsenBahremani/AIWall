@@ -23,7 +23,7 @@ from app.alerts.heartbeat import HeartbeatMonitor
 from app.audit.writer import AuditWriter
 from app.config import AIWallConfig, load_config, resolve_config_path
 from app.plugins.base import AIWallPlugin
-from app.plugins.loader import discover_plugins, register_plugins
+from app.plugins.loader import collect_alert_notifiers, discover_plugins, register_plugins
 from app.policies.engine import PolicyEngine
 from app.profiles.store import ProfileStore
 from app.proxy.pricing import CostEstimator, resolve_prices_path
@@ -54,10 +54,13 @@ def create_app(
     engine, audit_writer, profile_store, approval_store = _init_storage(config)
     prices_path = resolve_prices_path(resolved_path, config.pricing.file)
     cost_estimator = CostEstimator(prices_path)
+    resolved_plugins = list(plugins) if plugins is not None else discover_plugins()
+    alert_notifiers = collect_alert_notifiers(resolved_plugins, config=config)
     alert_dispatcher = build_alert_dispatcher(
         config,
         http_client=http_client,
         recording_notifier=recording_notifier,
+        extra_notifiers=alert_notifiers,
     )
     approval_broker = ApprovalBroker()
 
@@ -154,7 +157,6 @@ def create_app(
     app.include_router(proxy_router)
     app.include_router(create_approvals_router())
     _register_web(app)
-    resolved_plugins = list(plugins) if plugins is not None else discover_plugins()
     register_plugins(app, config, resolved_plugins)
     return app
 

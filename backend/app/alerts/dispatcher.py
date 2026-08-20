@@ -18,6 +18,7 @@ from app.alerts.base import (
     Notifier,
 )
 from app.alerts.ntfy import DEFAULT_NTFY_SERVER, NtfyNotifier
+from app.alerts.registry import AlertNotifierRegistry, NotifierBuildContext
 from app.alerts.stub import RecordingNotifier
 from app.alerts.telegram import TelegramNotifier
 from app.alerts.webhook import WebhookNotifier
@@ -60,6 +61,7 @@ def build_alert_dispatcher(
     *,
     http_client=None,
     recording_notifier: RecordingNotifier | None = None,
+    extra_notifiers: AlertNotifierRegistry | None = None,
 ) -> AlertDispatcher:
     """Build a dispatcher from ``alerts:`` config.
 
@@ -67,7 +69,12 @@ def build_alert_dispatcher(
     ``channel: telegram`` sends via the Bot API using ``bot_token_env`` + ``chat_id``.
     ``channel: webhook`` POSTs JSON to ``url`` (Discord / Slack / Home Assistant).
     ``channel: ntfy`` publishes to ``server``/``topic`` (defaults to ntfy.sh).
+    Additional channels may be registered by plugins via ``extra_notifiers``.
     """
+    ctx = NotifierBuildContext(
+        http_client=http_client,
+        recording_notifier=recording_notifier,
+    )
     channels: list[_BoundChannel] = []
     for index, entry in enumerate(config.alerts):
         if not entry.enabled:
@@ -79,8 +86,8 @@ def build_alert_dispatcher(
         try:
             notifier = _build_notifier(
                 entry,
-                http_client=http_client,
-                recording_notifier=recording_notifier,
+                ctx=ctx,
+                extra_notifiers=extra_notifiers,
             )
         except ValueError as exc:
             logger.warning(
@@ -121,32 +128,40 @@ def _normalize_triggers(values: list[str]) -> frozenset[str]:
 def _build_notifier(
     entry: AlertChannelConfig,
     *,
-    http_client=None,
-    recording_notifier: RecordingNotifier | None = None,
+    ctx: NotifierBuildContext,
+    extra_notifiers: AlertNotifierRegistry | None = None,
 ) -> Notifier | None:
     channel = entry.channel.strip().lower()
     if channel == "stub":
-        return recording_notifier if recording_notifier is not None else RecordingNotifier()
+        return (
+            ctx.recording_notifier
+            if ctx.recording_notifier is not None
+            else RecordingNotifier()
+        )
     if channel == "telegram":
         if not entry.bot_token_env or not entry.chat_id:
             raise ValueError("telegram channel requires bot_token_env and chat_id")
         return TelegramNotifier.from_env(
             bot_token_env=entry.bot_token_env,
             chat_id=entry.chat_id,
-            http_client=http_client,
+            http_client=ctx.http_client,
         )
     if channel == "webhook":
         if not entry.url:
             raise ValueError("webhook channel requires url")
-        return WebhookNotifier(url=entry.url, http_client=http_client)
+        return WebhookNotifier(url=entry.url, http_client=ctx.http_client)
     if channel == "ntfy":
         if not entry.topic:
             raise ValueError("ntfy channel requires topic")
         return NtfyNotifier(
             topic=entry.topic,
             server=entry.server or DEFAULT_NTFY_SERVER,
-            http_client=http_client,
+            http_client=ctx.http_client,
         )
+    if extra_notifiers is not None:
+        custom = extra_notifiers.build(channel, entry, ctx)
+        if custom is not None:
+            return custom
     return None
 
 

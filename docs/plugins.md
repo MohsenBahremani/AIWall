@@ -12,8 +12,26 @@ Each entry point loads a factory callable (or instance) implementing `AIWallPlug
 |---|---|
 | `info` | `PluginInfo(name, version, edition)` — listed on `/healthz` |
 | `register(app, *, config)` | Mount routes, services, or hooks on the core FastAPI app |
+| `register_alert_notifiers(registry, *, config)` *(optional)* | Register custom `alerts[].channel` notifier factories |
 
 Core code lives in `backend/app/plugins/` (`base.py`, `loader.py`). The app factory calls `discover_plugins()` unless tests pass an explicit `plugins=` list to `create_app()`.
+
+### Custom alert channels
+
+Plugins may register additional alert channel types (Pro uses `push`):
+
+```python
+def register_alert_notifiers(self, registry, *, config):
+    registry.register("push", lambda entry, ctx: MyNotifier(http_client=ctx.http_client))
+```
+
+Then reference the channel in `aiwall.yaml`:
+
+```yaml
+alerts:
+  - channel: push
+    on: [secret_blocked, approval_required]
+```
 
 ## Commercial packaging (private repo)
 
