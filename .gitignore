@@ -153,6 +153,7 @@ activemq-data/
 aiwall.yaml
 prices.yaml
 data/
+.aiwall-pro-install
 .venv
 env/
 venv/

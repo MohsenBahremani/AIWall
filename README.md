@@ -46,6 +46,14 @@ Details: [docs/family-mode.md](docs/family-mode.md). Compose stack: [docs/open-w
 
 Community is meant to be useful on its own. Pro and Enterprise ship as separate modules.
 
+If you have an AIWall-pro checkout, install Community + Pro in one step (venv):
+
+```bash
+/path/to/AIWall-pro/scripts/install.sh
+```
+
+Updates: `/path/to/AIWall-pro/scripts/update.sh`. See the Pro README for systemd and Docker overlay notes.
+
 ## Related repositories
 
 | Repository | Purpose |
