@@ -235,3 +235,35 @@ def test_summarize_agent_actions_includes_shell() -> None:
     body = json.dumps(_critical_shell_payload()).encode()
     summary = summarize_agent_actions(body)
     assert "rm -rf /" in summary
+
+
+@pytest.mark.asyncio
+async def test_list_approvals_history_status(
+    tmp_path,
+    monkeypatch,
+    upstream_mock_handler,
+) -> None:
+    from app.main import create_app
+
+    monkeypatch.setenv("OPENAI_API_KEY", "upstream-openai-key")
+    config_path = write_test_config(tmp_path, policies_block="", extra_yaml=GUARDRAILS_YAML)
+    http_client = httpx.AsyncClient(transport=httpx.MockTransport(upstream_mock_handler))
+    app = create_app(config_path=config_path, http_client=http_client)
+    created = app.state.approval_store.create(
+        request_id="hist-1",
+        policy_id="agent-shell",
+        reason="require_approval",
+        summary="held",
+        provider="openai",
+        model="gpt-4o-mini",
+    )
+    app.state.approval_store.approve(created.id, decided_by="tester")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        pending = await client.get("/approvals?status=pending")
+        assert pending.json()["approvals"] == []
+        history = await client.get("/approvals?status=approved")
+        ids = [row["id"] for row in history.json()["approvals"]]
+        assert created.id in ids
+    await http_client.aclose()

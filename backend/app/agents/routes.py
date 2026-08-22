@@ -43,10 +43,14 @@ def create_approvals_router() -> APIRouter:
             raise HTTPException(status_code=503, detail="Approval store unavailable")
         if status == "pending" or status is None:
             items = store.list_pending(limit=limit)
+        elif status == "all":
+            items = store.list(status=None, limit=limit)
+        elif status in {"approved", "denied", "timed_out"}:
+            items = store.list(status=status, limit=limit)
         else:
             raise HTTPException(
                 status_code=400,
-                detail="Only status=pending is supported in this release",
+                detail="status must be pending, approved, denied, timed_out, or all",
             )
         return {"approvals": [_approval_payload(item) for item in items]}
 

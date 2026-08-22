@@ -14,6 +14,7 @@ from app.agents.approval_models import (
     APPROVAL_APPROVED,
     APPROVAL_DENIED,
     APPROVAL_PENDING,
+    APPROVAL_STATUSES,
     APPROVAL_TIMED_OUT,
     PendingApprovalRow,
 )
@@ -105,15 +106,30 @@ class ApprovalStore:
             return _to_dataclass(row) if row is not None else None
 
     def list_pending(self, *, limit: int = 50) -> list[PendingApproval]:
+        return self.list(status=APPROVAL_PENDING, limit=limit)
+
+    def list(
+        self,
+        *,
+        status: str | None = APPROVAL_PENDING,
+        user_id: str | None = None,
+        limit: int = 50,
+    ) -> list[PendingApproval]:
+        """List approvals, newest first. ``status=None`` returns all statuses."""
         if limit < 1:
             raise ValueError("limit must be >= 1")
+        if status is not None and status not in APPROVAL_STATUSES:
+            raise ValueError(f"Invalid approval status: {status}")
         with self._session_factory() as session:
             stmt = (
                 select(PendingApprovalRow)
-                .where(PendingApprovalRow.status == APPROVAL_PENDING)
                 .order_by(PendingApprovalRow.id.desc())
                 .limit(limit)
             )
+            if status is not None:
+                stmt = stmt.where(PendingApprovalRow.status == status)
+            if user_id is not None:
+                stmt = stmt.where(PendingApprovalRow.user_id == user_id)
             return [_to_dataclass(row) for row in session.scalars(stmt).all()]
 
     def decide(
