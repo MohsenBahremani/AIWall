@@ -52,6 +52,8 @@ If you have an AIWall-pro checkout, install Community + Pro in one step (venv):
 /path/to/AIWall-pro/scripts/install.sh
 ```
 
+Then open http://127.0.0.1:8080/pro/setup for the first-run wizard (license/trial, household, preset, parent profile).
+
 Updates: `/path/to/AIWall-pro/scripts/update.sh`. See the Pro README for systemd and Docker overlay notes.
 
 ## Related repositories

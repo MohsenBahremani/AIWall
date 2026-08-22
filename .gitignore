@@ -154,6 +154,8 @@ aiwall.yaml
 prices.yaml
 data/
 .aiwall-pro-install
+pro-license.yaml
+pro-setup.yaml
 .venv
 env/
 venv/
