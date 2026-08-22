@@ -25,6 +25,7 @@ from app.config import AIWallConfig, load_config, resolve_config_path
 from app.plugins.base import AIWallPlugin
 from app.plugins.loader import (
     collect_alert_notifiers,
+    collect_budget_checkers,
     collect_secret_rules,
     discover_plugins,
     register_plugins,
@@ -62,6 +63,7 @@ def create_app(
     resolved_plugins = list(plugins) if plugins is not None else discover_plugins()
     alert_notifiers = collect_alert_notifiers(resolved_plugins, config=config)
     plugin_secret_rules = collect_secret_rules(resolved_plugins, config=config)
+    budget_checkers = collect_budget_checkers(resolved_plugins, config=config)
     alert_dispatcher = build_alert_dispatcher(
         config,
         http_client=http_client,
@@ -126,6 +128,7 @@ def create_app(
     app.state.approval_broker = approval_broker
     app.state.secret_extra_rules = plugin_secret_rules
     app.state.plugin_secret_rules = plugin_secret_rules
+    app.state.budget_checkers = budget_checkers
     if recording_notifier is not None:
         app.state.recording_notifier = recording_notifier
     if http_client is not None:

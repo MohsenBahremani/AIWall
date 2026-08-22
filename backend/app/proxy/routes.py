@@ -47,5 +47,6 @@ async def chat_completions(request: Request):
         getattr(request.app.state, "approval_store", None),
         getattr(request.app.state, "approval_broker", None),
         getattr(request.app.state, "secret_extra_rules", ()),
+        getattr(request.app.state, "budget_checkers", ()),
     )
     return await proxy.forward(request)

@@ -637,17 +637,37 @@ class AuditWriter:
         since: datetime,
         until: datetime | None = None,
         decisions: frozenset[str] | set[str] | None = None,
+        provider: str | None = None,
     ) -> ProfileUsage:
         """Aggregate billable usage for a profile since ``since`` (UTC)."""
+        return self.usage_for_scope(
+            since=since,
+            until=until,
+            user_id=user_id,
+            provider=provider,
+            decisions=decisions,
+        )
+
+    def usage_for_scope(
+        self,
+        *,
+        since: datetime,
+        until: datetime | None = None,
+        user_id: str | None = None,
+        provider: str | None = None,
+        decisions: frozenset[str] | set[str] | None = None,
+    ) -> ProfileUsage:
+        """Aggregate usage for an optional profile and/or provider scope."""
         from sqlalchemy import func, select
 
         with self._session_factory() as session:
-            filters = [
-                AuditEventRow.user_id == user_id,
-                AuditEventRow.timestamp >= since,
-            ]
+            filters = [AuditEventRow.timestamp >= since]
             if until is not None:
                 filters.append(AuditEventRow.timestamp < until)
+            if user_id is not None:
+                filters.append(AuditEventRow.user_id == user_id)
+            if provider is not None:
+                filters.append(AuditEventRow.provider == provider)
             if decisions is not None:
                 filters.append(AuditEventRow.decision.in_(tuple(decisions)))
 

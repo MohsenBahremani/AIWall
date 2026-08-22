@@ -119,3 +119,26 @@ def collect_secret_rules(
                 getattr(getattr(plugin, "info", None), "name", plugin),
             )
     return registry.rules()
+
+
+def collect_budget_checkers(
+    plugins: list[AIWallPlugin],
+    *,
+    config: AIWallConfig,
+) -> tuple:
+    """Ask plugins to register cost-budget checkers."""
+    from app.budgets import BudgetCheckerRegistry
+
+    registry = BudgetCheckerRegistry()
+    for plugin in plugins:
+        hook = getattr(plugin, "register_budget_checkers", None)
+        if not callable(hook):
+            continue
+        try:
+            hook(registry, config=config)
+        except Exception:
+            logger.exception(
+                "Plugin %s failed register_budget_checkers",
+                getattr(getattr(plugin, "info", None), "name", plugin),
+            )
+    return registry.build()

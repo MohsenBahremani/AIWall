@@ -183,6 +183,9 @@ def triggers_for_block(
         triggers.insert(0, TRIGGER_SECRET_BLOCKED)
     if reason == "daily-limit" or policy_id == "daily-limit":
         triggers.append(TRIGGER_DAILY_LIMIT)
+    if reason == "cost-budget" or policy_id == "cost-budget":
+        triggers.append(TRIGGER_COST_THRESHOLD)
+        triggers.append(TRIGGER_DAILY_LIMIT)
     secret_like = any(
         marker in rule_id
         for rule_id in rule_ids
@@ -197,6 +200,8 @@ def triggers_for_warn(*, reason: str | None, policy_id: str | None) -> list[str]
     if reason and "cost" in reason.lower():
         return [TRIGGER_COST_THRESHOLD]
     if policy_id and "cost" in policy_id.lower():
+        return [TRIGGER_COST_THRESHOLD]
+    if reason == "cost-budget" or policy_id == "cost-budget":
         return [TRIGGER_COST_THRESHOLD]
     return []
 

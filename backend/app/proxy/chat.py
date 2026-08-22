@@ -23,10 +23,12 @@ from app.alerts.dispatcher import (
     AlertDispatcher,
     triggers_for_block,
     triggers_for_provider_error,
+    triggers_for_warn,
 )
 from app.audit.helpers import log_proxy_event, measure_input_length, new_request_id
 from app.audit.writer import AuditWriter
 from app.auth.gateway import GatewayIdentity, gateway_auth_enabled, strip_client_authorization
+from app.budgets import BudgetCheckContext, BudgetChecker, run_budget_checkers
 from app.classifiers.categories import CategoryResult, classify_request_body
 from app.config import AIWallConfig
 from app.policies.context import PolicyContext
@@ -131,6 +133,7 @@ class ChatCompletionProxy:
         approval_store: ApprovalStore | None = None,
         approval_broker: ApprovalBroker | None = None,
         secret_extra_rules: tuple | list | None = None,
+        budget_checkers: tuple[BudgetChecker, ...] | list[BudgetChecker] | None = None,
     ):
         self._config = config
         self._http_client = http_client
@@ -142,6 +145,7 @@ class ChatCompletionProxy:
         self._approval_store = approval_store
         self._approval_broker = approval_broker
         self._secret_extra_rules = secret_extra_rules or ()
+        self._budget_checkers = tuple(budget_checkers or ())
 
     async def _emit_block_alerts(
         self,
@@ -164,6 +168,33 @@ class ChatCompletionProxy:
                     trigger=trigger,
                     title=f"AIWall {trigger.replace('_', ' ')}",
                     message=f"Policy {policy_name} blocked a request ({reason}).",
+                    request_id=request_id,
+                    policy_id=policy_result.policy_id,
+                    reason=policy_result.reason,
+                    rule_ids=policy_result.rule_ids,
+                )
+            )
+
+    async def _emit_warn_alerts(
+        self,
+        *,
+        request_id: str,
+        policy_result: PolicyResult,
+    ) -> None:
+        if self._alert_dispatcher is None or self._alert_dispatcher.channel_count == 0:
+            return
+        triggers = triggers_for_warn(
+            reason=policy_result.reason,
+            policy_id=policy_result.policy_id,
+        )
+        policy_name = policy_result.policy_id or "unknown"
+        reason = policy_result.reason or "warn"
+        for trigger in triggers:
+            await self._alert_dispatcher.dispatch(
+                AlertEvent(
+                    trigger=trigger,
+                    title=f"AIWall {trigger.replace('_', ' ')}",
+                    message=f"Policy {policy_name} warned on a request ({reason}).",
                     request_id=request_id,
                     policy_id=policy_result.policy_id,
                     reason=policy_result.reason,
@@ -469,6 +500,56 @@ class ChatCompletionProxy:
                     policy_result=limit_check.result,
                 )
                 return policy_blocked_response(limit_check.result)
+
+        projected_usage = estimate_request_token_usage(body)
+        cost_estimate = self._cost_estimator.estimate(provider.name, model, projected_usage)
+        budget_decision = run_budget_checkers(
+            self._budget_checkers,
+            BudgetCheckContext(
+                profile_id=identity.profile_id,
+                user_id=user_id,
+                provider=provider.name,
+                model=model,
+                projected_tokens=projected_usage.total_tokens,
+                projected_cost=(
+                    cost_estimate.estimated_cost if cost_estimate else 0.0
+                ),
+            ),
+        )
+        if budget_decision is not None and budget_decision.action == "block":
+            block_result = budget_decision.as_policy_result()
+            latency_ms = (time.perf_counter() - started) * 1000.0
+            log_proxy_event(
+                self._audit_writer,
+                self._config,
+                request_id=request_id,
+                provider_name=provider.name,
+                model=model,
+                decision="block",
+                reason=block_result.reason,
+                input_length=input_length,
+                output_length=0,
+                latency_ms=latency_ms,
+                body=body,
+                policy_id=block_result.policy_id,
+                user_id=user_id,
+                categories=categories,
+            )
+            await self._emit_block_alerts(
+                request_id=request_id,
+                policy_result=block_result,
+            )
+            return policy_blocked_response(block_result)
+        if (
+            budget_decision is not None
+            and budget_decision.action == "warn"
+            and policy_result.action == "allow"
+        ):
+            policy_result = budget_decision.as_policy_result()
+            await self._emit_warn_alerts(
+                request_id=request_id,
+                policy_result=policy_result,
+            )
 
         forward_body = body
         redaction_count = 0

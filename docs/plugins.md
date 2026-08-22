@@ -65,6 +65,17 @@ def register(self, app, *, config):
 
 Each `{name}.yaml` file must contain a `policies:` list (optional `meta:` for UI title/summary).
 
+### Cost budget checkers
+
+Plugins may register spend caps evaluated after daily profile limits:
+
+```python
+def register_budget_checkers(self, registry, *, config):
+    registry.register(lambda: MyBudgetChecker())
+```
+
+A checker returns `BudgetDecision(action="warn"|"block")` or `None`.
+
 ## Commercial packaging (private repo)
 
 1. Create a **separate** private repo or wheel (never commit license-gated code here).
