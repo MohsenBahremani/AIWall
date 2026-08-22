@@ -91,6 +91,8 @@ Named policy packs merged before explicit `policies`. Shipped presets:
 | `developer` | Warn on `input.contains_secret`; block on `input.contains_private_key` |
 | `child` | For `user.role == "child"`: block `explicit`/`unsafe`/`violence` categories; hard-block secrets and private keys |
 
+With **AIWall Pro** installed, additional packs (`home`, `school`, `work`) are available and can be applied from `/pro/presets`. Pro also writes an additive `preset-selection.yaml` (beside the config or under `data/`) so presets can be toggled without editing `aiwall.yaml`.
+
 ```yaml
 presets:
   - developer

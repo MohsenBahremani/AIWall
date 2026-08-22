@@ -51,6 +51,20 @@ def register_secret_rules(self, registry, *, config):
 
 Custom rules persisted by the Pro editor live in `custom-scanner-rules.yaml` next to the config (or under `data/`).
 
+### Extra policy presets
+
+Plugins may register additional preset directories:
+
+```python
+from app.presets import register_preset_dir
+from pathlib import Path
+
+def register(self, app, *, config):
+    register_preset_dir(Path(__file__).resolve().parent / "presets")
+```
+
+Each `{name}.yaml` file must contain a `policies:` list (optional `meta:` for UI title/summary).
+
 ## Commercial packaging (private repo)
 
 1. Create a **separate** private repo or wheel (never commit license-gated code here).

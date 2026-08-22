@@ -20,6 +20,19 @@ PRIVATE_KEY_RULE_IDS = frozenset(
 )
 
 _PACKAGE_PRESETS_DIR = Path(__file__).resolve().parent
+_EXTRA_PRESET_DIRS: list[Path] = []
+
+
+def register_preset_dir(path: Path | str) -> None:
+    """Register an extra directory of ``{name}.yaml`` policy presets (plugins)."""
+    resolved = Path(path).resolve()
+    if resolved not in _EXTRA_PRESET_DIRS:
+        _EXTRA_PRESET_DIRS.append(resolved)
+
+
+def clear_extra_preset_dirs() -> None:
+    """Test helper: reset plugin preset directories."""
+    _EXTRA_PRESET_DIRS.clear()
 
 
 def resolve_preset_path(name: str, config_dir: Path | None = None) -> Path:
@@ -27,8 +40,9 @@ def resolve_preset_path(name: str, config_dir: Path | None = None) -> Path:
 
     Search order:
     1. ``{config_dir}/presets/{name}.yaml``
-    2. package-shipped ``app/presets/{name}.yaml``
-    3. repo-root ``presets/{name}.yaml`` (when running from a source checkout)
+    2. plugin-registered preset directories
+    3. package-shipped ``app/presets/{name}.yaml``
+    4. repo-root ``presets/{name}.yaml`` (when running from a source checkout)
     """
     safe_name = Path(name).name
     if safe_name != name or "/" in name or "\\" in name:
@@ -37,6 +51,8 @@ def resolve_preset_path(name: str, config_dir: Path | None = None) -> Path:
     candidates: list[Path] = []
     if config_dir is not None:
         candidates.append(config_dir / "presets" / f"{safe_name}.yaml")
+    for extra in _EXTRA_PRESET_DIRS:
+        candidates.append(extra / f"{safe_name}.yaml")
     candidates.append(_PACKAGE_PRESETS_DIR / f"{safe_name}.yaml")
     # backend/app/presets -> repo root presets/
     candidates.append(_PACKAGE_PRESETS_DIR.parents[3] / "presets" / f"{safe_name}.yaml")
@@ -45,6 +61,26 @@ def resolve_preset_path(name: str, config_dir: Path | None = None) -> Path:
         if path.is_file():
             return path
     raise FileNotFoundError(f"Policy preset not found: {name}")
+
+
+def list_available_presets(config_dir: Path | None = None) -> list[str]:
+    """Return sorted unique preset names discoverable on disk."""
+    dirs: list[Path] = []
+    if config_dir is not None:
+        dirs.append(config_dir / "presets")
+    dirs.extend(_EXTRA_PRESET_DIRS)
+    dirs.append(_PACKAGE_PRESETS_DIR)
+    dirs.append(_PACKAGE_PRESETS_DIR.parents[3] / "presets")
+
+    names: set[str] = set()
+    for directory in dirs:
+        if not directory.is_dir():
+            continue
+        for path in directory.glob("*.yaml"):
+            if path.name.startswith("."):
+                continue
+            names.add(path.stem)
+    return sorted(names)
 
 
 def load_preset_policies(name: str, config_dir: Path | None = None) -> list[PolicyConfig]:

@@ -176,6 +176,12 @@ def load_config(path: Path | str | None = None) -> AIWallConfig:
     _normalize_yaml_null_dicts(raw)
 
     config = AIWallConfig.model_validate(raw)
+    from app.presets.selection import load_preset_selection, preset_selection_path
+
+    selection = load_preset_selection(preset_selection_path(config_path))
+    if selection:
+        merged_names = list(dict.fromkeys([*config.presets, *selection]))
+        config = config.model_copy(update={"presets": merged_names})
     if config.presets:
         from app.presets import merge_preset_policies
 
