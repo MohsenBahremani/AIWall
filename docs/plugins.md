@@ -13,6 +13,7 @@ Each entry point loads a factory callable (or instance) implementing `AIWallPlug
 | `info` | `PluginInfo(name, version, edition)` — listed on `/healthz` |
 | `register(app, *, config)` | Mount routes, services, or hooks on the core FastAPI app |
 | `register_alert_notifiers(registry, *, config)` *(optional)* | Register custom `alerts[].channel` notifier factories |
+| `register_secret_rules(registry, *, config)` *(optional)* | Register extra secret detectors (`SecretRuleDef`) |
 
 Core code lives in `backend/app/plugins/` (`base.py`, `loader.py`). The app factory calls `discover_plugins()` unless tests pass an explicit `plugins=` list to `create_app()`.
 
@@ -32,6 +33,23 @@ alerts:
   - channel: push
     on: [secret_blocked, approval_required]
 ```
+
+### Extra secret detectors
+
+Plugins may register additional regex detectors (Pro ships a premium pack + custom UI):
+
+```python
+def register_secret_rules(self, registry, *, config):
+    from app.scanners.registry import SecretRuleDef
+    registry.register(SecretRuleDef(
+        rule_id="openai-api-key",
+        pattern=r"\\b(sk-[A-Za-z0-9]{20,})\\b",
+        description="OpenAI API key",
+        source="premium",
+    ))
+```
+
+Custom rules persisted by the Pro editor live in `custom-scanner-rules.yaml` next to the config (or under `data/`).
 
 ## Commercial packaging (private repo)
 

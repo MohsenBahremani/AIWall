@@ -130,6 +130,7 @@ class ChatCompletionProxy:
         alert_dispatcher: AlertDispatcher | None = None,
         approval_store: ApprovalStore | None = None,
         approval_broker: ApprovalBroker | None = None,
+        secret_extra_rules: tuple | list | None = None,
     ):
         self._config = config
         self._http_client = http_client
@@ -140,6 +141,7 @@ class ChatCompletionProxy:
         self._alert_dispatcher = alert_dispatcher
         self._approval_store = approval_store
         self._approval_broker = approval_broker
+        self._secret_extra_rules = secret_extra_rules or ()
 
     async def _emit_block_alerts(
         self,
@@ -294,7 +296,11 @@ class ChatCompletionProxy:
         user_id: str | None = None,
         category_result: CategoryResult | None = None,
     ) -> PolicyResult:
-        scan_result = scan_request_body(body, self._config.scanners)
+        scan_result = scan_request_body(
+            body,
+            self._config.scanners,
+            extra_rules=self._secret_extra_rules,
+        )
         if category_result is None:
             category_result = classify_request_body(body)
         projected_usage = estimate_request_token_usage(body)
@@ -467,7 +473,11 @@ class ChatCompletionProxy:
         forward_body = body
         redaction_count = 0
         if policy_result.action == "redact":
-            redaction = redact_request_body(body, self._config.scanners)
+            redaction = redact_request_body(
+                body,
+                self._config.scanners,
+                extra_rules=self._secret_extra_rules,
+            )
             forward_body = redaction.body
             redaction_count = redaction.redaction_count
             if redaction.rule_ids and not policy_result.rule_ids:

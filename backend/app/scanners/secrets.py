@@ -12,6 +12,7 @@ from app.config import RuleScannerConfig, ScannerConfig
 from app.scanners.allowlist import AllowlistChecker
 from app.scanners.dotenv import detect_dotenv_block
 from app.scanners.entropy import contains_high_entropy_string, find_high_entropy_tokens
+from app.scanners.registry import SecretRuleDef
 
 
 @dataclass(frozen=True)
@@ -162,13 +163,45 @@ def _mask_for_rule(rule_id: str) -> str:
     return f"[REDACTED:{rule_id}]"
 
 
+def _compile_extra_rules(
+    extra_rules: tuple[SecretRuleDef, ...] | list[SecretRuleDef] | None,
+) -> tuple[_SecretRule, ...]:
+    if not extra_rules:
+        return ()
+    compiled: list[_SecretRule] = []
+    for rule in extra_rules:
+        try:
+            pattern = rule.compile()
+        except re.error:
+            continue
+        compiled.append(
+            _SecretRule(
+                rule_id=rule.rule_id,
+                pattern=pattern,
+                description=rule.description,
+                default_min_length=rule.default_min_length,
+            )
+        )
+    return tuple(compiled)
+
+
 class SecretScanner:
-    def __init__(self, config: ScannerConfig | None = None):
+    def __init__(
+        self,
+        config: ScannerConfig | None = None,
+        *,
+        extra_rules: tuple[SecretRuleDef, ...] | list[SecretRuleDef] | None = None,
+    ):
         self._config = config or ScannerConfig()
         self._allowlist = AllowlistChecker(
             ignore_examples=self._config.ignore_examples,
             allowlist=self._config.allowlist,
         )
+        self._extra_rules = _compile_extra_rules(extra_rules)
+
+    @property
+    def _all_regex_rules(self) -> tuple[_SecretRule, ...]:
+        return _SECRET_RULES + self._extra_rules
 
     def _rule_config(self, rule_id: str) -> RuleScannerConfig:
         return self._config.rules.get(rule_id, RuleScannerConfig())
@@ -200,7 +233,7 @@ class SecretScanner:
 
     def _collect_spans(self, text: str) -> list[_RedactionSpan]:
         spans: list[_RedactionSpan] = []
-        for rule in _SECRET_RULES:
+        for rule in self._all_regex_rules:
             if not self._rule_enabled(rule.rule_id):
                 continue
             for match in rule.pattern.finditer(text):
@@ -286,7 +319,7 @@ class SecretScanner:
             return ScanResult(contains_secret=False)
 
         matches: list[SecretMatch] = []
-        for rule in _SECRET_RULES:
+        for rule in self._all_regex_rules:
             if not self._rule_enabled(rule.rule_id):
                 continue
             for match in rule.pattern.finditer(text):
@@ -343,20 +376,27 @@ class SecretScanner:
         return self._apply_spans(text, self._collect_spans(text))
 
 
-def scan_request_body(body: bytes, scanner_config: ScannerConfig | None = None) -> ScanResult:
+def scan_request_body(
+    body: bytes,
+    scanner_config: ScannerConfig | None = None,
+    *,
+    extra_rules: tuple[SecretRuleDef, ...] | list[SecretRuleDef] | None = None,
+) -> ScanResult:
     from app.audit.helpers import extract_prompt_text
 
     text = extract_prompt_text(body)
     if text is None and body:
         text = body.decode("utf-8", errors="replace")
-    return SecretScanner(scanner_config).scan(text or "")
+    return SecretScanner(scanner_config, extra_rules=extra_rules).scan(text or "")
 
 
 def redact_request_body(
     body: bytes,
     scanner_config: ScannerConfig | None = None,
+    *,
+    extra_rules: tuple[SecretRuleDef, ...] | list[SecretRuleDef] | None = None,
 ) -> BodyRedactionResult:
-    scanner = SecretScanner(scanner_config)
+    scanner = SecretScanner(scanner_config, extra_rules=extra_rules)
     if not body:
         return BodyRedactionResult(body=body, redaction_count=0)
 

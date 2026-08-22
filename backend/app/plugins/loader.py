@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
     from app.alerts.registry import AlertNotifierRegistry
     from app.config import AIWallConfig
+    from app.scanners.registry import SecretRuleDef
 
 logger = logging.getLogger(__name__)
 
@@ -95,3 +96,26 @@ def collect_alert_notifiers(
                 getattr(getattr(plugin, "info", None), "name", plugin),
             )
     return registry
+
+
+def collect_secret_rules(
+    plugins: list[AIWallPlugin],
+    *,
+    config: AIWallConfig,
+) -> tuple[SecretRuleDef, ...]:
+    """Ask plugins to register premium / extra secret detectors."""
+    from app.scanners.registry import SecretRuleRegistry
+
+    registry = SecretRuleRegistry()
+    for plugin in plugins:
+        hook = getattr(plugin, "register_secret_rules", None)
+        if not callable(hook):
+            continue
+        try:
+            hook(registry, config=config)
+        except Exception:
+            logger.exception(
+                "Plugin %s failed register_secret_rules",
+                getattr(getattr(plugin, "info", None), "name", plugin),
+            )
+    return registry.rules()
