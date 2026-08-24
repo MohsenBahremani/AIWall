@@ -49,7 +49,7 @@ def register_secret_rules(self, registry, *, config):
     ))
 ```
 
-Custom rules persisted by the Pro editor live in `custom-scanner-rules.yaml` next to the config (or under `data/`).
+Custom rules persisted by the Pro editor live in `custom-scanner-rules.yaml` next to the config (or under `data/`). Community ships the loader (`app.scanners.custom_rules`) and the file format, but does not read that file on startup by itself — the Pro plugin merges it into the active rule set. A standalone Community deployment that wants file-backed custom rules needs a plugin to call `load_custom_secret_rules()` and register the results.
 
 ### Extra policy presets
 
@@ -117,4 +117,4 @@ create_app(..., plugins=[plugin_factory()])
 - Do not add paid-only logic to `backend/app/` — only the plugin loader and protocol.
 - Never move a shipped Community feature behind a plugin.
 
-See also: long-term plan Section 20 (licensing) and Phase 8 task 8.1.
+Licensing and activation are the plugin's responsibility, not Community's: the loader will happily load an unlicensed plugin, so any entitlement check belongs in the plugin's own `register()` path.

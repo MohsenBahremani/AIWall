@@ -91,7 +91,9 @@ Named policy packs merged before explicit `policies`. Shipped presets:
 | `developer` | Warn on `input.contains_secret`; block on `input.contains_private_key` |
 | `child` | For `user.role == "child"`: block `explicit`/`unsafe`/`violence` categories; hard-block secrets and private keys |
 
-With **AIWall Pro** installed, additional packs (`home`, `school`, `work`) are available and can be applied from `/pro/presets`. Pro also writes an additive `preset-selection.yaml` (beside the config or under `data/`) so presets can be toggled without editing `aiwall.yaml`.
+Community also merges an additive `preset-selection.yaml` (beside the config or under `data/`) whenever the file is present, so presets can be toggled without editing `aiwall.yaml`. Names from that file are appended to `presets`, and the policy engine reloads when its mtime changes.
+
+With **AIWall Pro** installed, additional packs (`home`, `school`, `work`) are available and `/pro/presets` writes that same `preset-selection.yaml` for you.
 
 ```yaml
 presets:
@@ -307,6 +309,8 @@ The ntfy channel POSTs plain text to `{server}/{topic}` with `Title`, `Tags`, an
 
 `approval_required` fires when an agent action is held for human approval (Phase 5.6).
 
+`cost_threshold` fires for both cost mechanisms: a `when: estimated_cost > …` policy in `aiwall.yaml` (reason `cost-threshold`) and a plugin budget block or warn (reason `cost-budget`). See "Cost budgets" below.
+
 ### `heartbeat`
 
 Optional background probes of configured providers. On the first failure for a provider, AIWall emits `provider_error` (no repeat alerts while that provider stays unhealthy). Monitor AIWall itself for gateway-down via `GET /healthz` (returns `status: ok` while the process is up; includes `unhealthy_providers` when heartbeat has run).
@@ -362,14 +366,36 @@ When a request action is `require_approval`, the proxy creates a pending approva
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/approvals?status=pending` | List pending approvals |
+| `GET` | `/approvals` | List approvals; see query params below |
 | `GET` | `/approvals/{id}` | Fetch one approval (any status) |
 | `POST` | `/approvals/{id}/approve` | Approve and release the held request |
 | `POST` | `/approvals/{id}/deny` | Deny and return HTTP 403 to the client |
 
-Optional query param `decided_by` records who decided. Denied and timed-out responses include `approval_id` in the JSON body and `X-AIWall-Approval-Id` header.
+`GET /approvals` query params:
+
+| Param | Values | Default | Description |
+|---|---|---|---|
+| `status` | `pending`, `approved`, `denied`, `timed_out`, `all` | `pending` | Filter by decision state; anything else returns HTTP 400 |
+| `limit` | `1`–`200` | `50` | Maximum rows returned |
+
+Use `status=all` (or a specific decided status) to read approval history rather than just the open queue.
+
+Optional query param `decided_by` on approve/deny records who decided. Denied and timed-out responses include `approval_id` in the JSON body and `X-AIWall-Approval-Id` header.
 
 Operators can also approve or deny from the control panel at `/agents`, which lists pending approvals and the recent agent action log.
+
+### Cost budgets
+
+AIWall has two independent ways to stop expensive requests, and they write different audit reasons.
+
+| Mechanism | Configured in | `policy_id` / `reason` |
+|---|---|---|
+| Per-request cost ceiling | A `policies` entry with `when: estimated_cost > 1.00` | Your policy `name` / `cost-threshold` |
+| Rolling budget (day/week/month) | A plugin budget checker, e.g. AIWall Pro's `/pro/budgets` | `cost-budget` / `cost-budget` |
+
+The per-request ceiling is evaluated by the policy engine alongside every other policy. Rolling budgets run later, just before the request is forwarded, and see the projected tokens and cost for the request plus the spend already recorded for that profile or provider. A budget checker can return `block` (HTTP 403) or `warn` (request proceeds, audited as a warn).
+
+Community ships the registry but no checkers, so rolling budgets are inert until a plugin registers one via `register_budget_checkers` — see [plugins.md](plugins.md).
 
 ## Environment variables
 

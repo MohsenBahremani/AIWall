@@ -124,8 +124,11 @@ Open **Agents** (`/agents`):
 | `POST` | `/approvals/{id}/approve` |
 | `POST` | `/approvals/{id}/deny` |
 
-Optional query param: `decided_by`. Denied / timed-out responses include
-`approval_id` and header `X-AIWall-Approval-Id`.
+`status` also accepts `approved`, `denied`, `timed_out`, and `all` for reading
+history, with `limit` (1–200, default 50) controlling how many rows come back.
+
+Optional query param on approve/deny: `decided_by`. Denied / timed-out responses
+include `approval_id` and header `X-AIWall-Approval-Id`.
 
 ## Alerts
 
@@ -156,12 +159,12 @@ the GUI:
 
 | Module | Focus |
 |---|---|
-| `tests/test_command_risk.py` | `rm -rf /` critical; `ls` low |
-| `tests/test_shell_guardrails.py` | warn / block / require-approval bands |
-| `tests/test_sensitive_files.py` | path patterns and proxy blocks |
-| `tests/test_approvals.py` | hold, approve, deny, timeout, alert |
-| `tests/test_agents_dashboard.py` | GUI approve/deny releases or blocks |
-| `tests/test_agent_actions.py` | extraction + persistence |
+| `backend/tests/test_command_risk.py` | `rm -rf /` critical; `ls` low |
+| `backend/tests/test_shell_guardrails.py` | warn / block / require-approval bands |
+| `backend/tests/test_sensitive_files.py` | path patterns and proxy blocks |
+| `backend/tests/test_approvals.py` | hold, approve, deny, timeout, alert |
+| `backend/tests/test_agents_dashboard.py` | GUI approve/deny releases or blocks |
+| `backend/tests/test_agent_actions.py` | extraction + persistence |
 
 ```bash
 .venv/bin/pytest backend/tests/test_command_risk.py \

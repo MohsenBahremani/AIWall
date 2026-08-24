@@ -96,10 +96,16 @@ async def test_discover_plugins_via_entry_point(example_config, monkeypatch):
     await http_client.aclose()
 
 
-def test_core_entry_points_empty_by_default():
-    from importlib.metadata import entry_points
+def test_core_package_declares_no_plugin_entry_points():
+    """Community core must not register plugins; Pro/stub may exist in a lab venv."""
+    from importlib.metadata import PackageNotFoundError, distribution
 
     from app.plugins.loader import ENTRY_POINT_GROUP
 
-    eps = list(entry_points(group=ENTRY_POINT_GROUP))
-    assert eps == []
+    try:
+        dist = distribution("aiwall")
+    except PackageNotFoundError:
+        pytest.skip("aiwall package metadata not available")
+
+    core_eps = [ep for ep in dist.entry_points if ep.group == ENTRY_POINT_GROUP]
+    assert core_eps == [], f"core package must not declare {ENTRY_POINT_GROUP}: {core_eps}"

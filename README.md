@@ -24,7 +24,8 @@ AIWall sits between your apps and AI providers. You get visibility, policy enfor
 - Serves a control panel — dashboard, event log, usage, cost, policies, agent approvals
 - Sends alerts — Telegram, webhook, or ntfy when something risky is blocked (or held for approval)
 - Writes an audit log — privacy-preserving by default; raw prompts only if you opt in
-- Tracks cost — tokens and estimated spend by provider and model
+- Tracks cost — tokens and estimated spend by provider and model, with per-request cost policies and pluggable rolling budgets
+- Loads plugins — setuptools entry points can add routes, alert channels, secret rules, presets, and budget checkers
 
 ## What AIWall does not do
 
@@ -150,6 +151,17 @@ Audit DB defaults to `data/aiwall.db`.
 | `AIWALL_API_KEY` | _(unset)_ | Client key when `gateway_auth.enabled: true` |
 | `OLLAMA_PORT` | `11434` | Host port with `--profile ollama` |
 
+`scripts/demo.sh` reads a few extra variables when you want to steer the demo:
+
+| Variable | Default | Description |
+|---|---|---|
+| `AIWALL_BASE_URL` | `http://127.0.0.1:$AIWALL_PORT` | Gateway the demo sends requests to |
+| `AIWALL_DB` | `data/aiwall.db` | Audit DB the demo reads recent rows from |
+| `AIWALL_DEMO_MODEL` | auto-detected | `model` field sent on both demo requests; otherwise picked from a running Ollama or Docker container, falling back to `gpt-4o-mini` |
+| `AIWALL_DEMO_SECRET` | `AKIADEMOAIWALLTEST01` | Fake secret used to trigger the block path |
+
+`AIWALL_DEMO_MODEL` only changes the `model` field the client sends. AIWall still routes by `providers[].models` in `aiwall.yaml`.
+
 Providers and policies live in `deploy/examples/aiwall.docker.yaml` (Docker) or `aiwall.yaml` (local). Docker keeps audit data in the `aiwall_data` volume.
 
 ## Architecture
@@ -188,6 +200,7 @@ Tune providers and policies in `aiwall.yaml`. Deeper reading:
 - [docs/agent-guardrails.md](docs/agent-guardrails.md) — tool / shell / file guardrails
 - [docs/audit-export.md](docs/audit-export.md) — SIEM JSONL (`aiwall.audit.v1`)
 - [docs/architecture.md](docs/architecture.md) — request flow
+- [docs/plugins.md](docs/plugins.md) — entry-point plugins: routes, alert channels, secret rules, presets, budget checkers
 
 ## Contributing
 

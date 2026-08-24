@@ -2,7 +2,7 @@
 
 Family mode is for **self-hosted chat** you control (Open WebUI, scripts, coding tools). Each household member gets an AIWall **profile** and API key. Policies, daily limits, and audit rows follow that key — not Open WebUI's own user database.
 
-Out of scope: commercial phone apps (ChatGPT, Character.AI, etc.). See the project scope boundary in the long-term plan.
+Out of scope: commercial phone apps (ChatGPT, Character.AI, etc.). Those pin TLS and expose no configurable base URL, so AIWall cannot see their traffic — use Screen Time, Family Link, or MDM for on-device limits.
 
 ## Concepts
 

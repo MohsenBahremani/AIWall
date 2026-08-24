@@ -1,6 +1,6 @@
 # AIWall Architecture
 
-This document describes the Community MVP architecture as shipped in Phase 1.
+This document describes the Community architecture as currently shipped.
 
 ## Overview
 
@@ -30,16 +30,22 @@ Upstream provider (OpenAI, Ollama, ...)
 2. **Gateway auth** — optional: validate shared `AIWALL_API_KEY` or a per-profile key; profile keys set audit `user_id`.
 3. **Model extraction** — the `model` field is parsed from the JSON body.
 4. **Provider selection** — the first configured provider whose `models` patterns match the requested model is chosen (`fnmatch` globs such as `gpt-*`, `llama*`).
-5. **Policy evaluation** — policies from `aiwall.yaml` are evaluated in order:
-   - `block` on first match stops the request (HTTP 403).
-   - `redact` masks matched secrets in the request body, then continues.
-   - `warn` is recorded but the request continues.
-   - otherwise the request is allowed.
-6. **Agent guardrails** (optional) — tool/shell/file actions are classified; shell risk and sensitive paths can warn, block, or hold for approval. See [agent-guardrails.md](agent-guardrails.md).
-7. **Secret scan** — regex and entropy rules run on message content before forwarding; results feed `input.contains_secret` policies.
-8. **Cost estimate (pre-forward)** — prompt tokens and `max_tokens` hints are used to estimate cost for `estimated_cost` policy conditions.
-9. **Forward** — non-streaming: full upstream response; streaming: SSE chunks passed through to the client.
-10. **Audit** — every request writes a row to SQLite (`decision`, `reason`, tokens, estimated cost, latency, redaction count, `user_id`). Agent tool actions are stored in `agent_actions` when present.
+5. **Category classification** — keyword classifiers derive `input.category` and `input.categories` for family policies.
+6. **Policy evaluation** — one bundled step (`ChatProxy._evaluate_policy`) that runs in this order:
+   1. **Secret scan** — regex and entropy rules run on message content; results feed `input.contains_secret` and `input.contains_private_key`.
+   2. **Cost estimate (pre-forward)** — prompt tokens and `max_tokens` hints estimate cost for `estimated_cost` conditions.
+   3. **Policy engine** — policies from `aiwall.yaml` are evaluated in order against the assembled context:
+      - `block` on first match stops the request (HTTP 403).
+      - `redact` masks matched secrets in the request body, then continues.
+      - `warn` is recorded but the request continues.
+      - otherwise the request is allowed.
+   4. **Agent guardrails** (optional) — tool/shell/file actions are classified; shell risk and sensitive paths can warn, block, or hold for approval. The guardrail verdict is merged with the policy verdict, strictest wins. See [agent-guardrails.md](agent-guardrails.md).
+7. **Approval hold** — a `require_approval` verdict parks the request until an operator approves or denies it, or the timeout expires.
+8. **Daily limits** — for requests carrying a profile key, projected tokens and cost are checked against that profile's daily allowance; exceeding it blocks with reason `daily-limit`.
+9. **Budget checkers** — registered plugins (Pro cost budgets) see the projected tokens and cost and may block or warn with reason `cost-budget`. See [plugins.md](plugins.md).
+10. **Redaction** — on a `redact` verdict, matched secrets in the outbound body are masked before forwarding.
+11. **Forward** — non-streaming: full upstream response; streaming: SSE chunks passed through to the client.
+12. **Audit** — every request writes a row to SQLite (`decision`, `reason`, tokens, estimated cost, latency, redaction count, `user_id`). Agent tool actions are stored in `agent_actions` when present.
 
 Blocked requests never reach the upstream provider. Redacted requests reach the provider with secrets masked.
 
@@ -52,7 +58,10 @@ Blocked requests never reach the upstream provider. Redacted requests reach the 
 | `app/scanners/` | Regex and entropy-based secret detection |
 | `app/classifiers/` | Keyword content-category classification for family policies |
 | `app/auth/` | Gateway auth: shared admin key and per-profile API keys |
-| `app/profiles/` | Family/user profile model and CRUD storage |
+| `app/profiles/` | Family/user profile model, CRUD storage, and per-profile daily limits |
+| `app/presets/` | Bundled policy packs and the additive `preset-selection.yaml` merge |
+| `app/settings/` | Runtime setting overrides written from the dashboard (`settings-overrides.yaml`) |
+| `app/budgets/` | Budget-checker registry consulted before forwarding (plugin-supplied) |
 | `app/providers/` | Provider adapters and model-based routing |
 | `app/audit/` | SQLite audit event model and writer |
 | `app/agents/` | Agent action model, tool classification, shell risk scoring, sensitive-file monitoring, approval hold/release, dashboard views (Phase 5) |
@@ -70,7 +79,7 @@ Blocked requests never reach the upstream provider. Redacted requests reach the 
 |---|---|---|
 | `/v1/chat/completions` | POST | OpenAI-compatible proxy (streaming and non-streaming) |
 | `/v1/models` | GET | Models from configured providers (OpenAI list shape) |
-| `/healthz` | GET | Liveness, version, provider/policy counts; optional `plugins` when Pro modules load |
+| `/healthz` | GET | Liveness, version, `config_path`, provider/policy/profile counts, `heartbeat_enabled`, `pending_approvals`, `unhealthy_providers`, plus `plugins` for any loaded entry-point plugin |
 | `/` | GET | Dashboard — summary cards, usage trends, and recent events |
 | `/events` | GET | Event log explorer — filters, pagination, detail |
 | `/events/export.json` | GET | Download filtered events + summary as JSON (same query filters as `/events`) |
@@ -88,7 +97,8 @@ Blocked requests never reach the upstream provider. Redacted requests reach the 
 | `/agents` | GET | Agent action log + pending approvals (approve/deny) |
 | `/agents/approvals/{id}/approve` | POST | Approve a held agent action from the GUI |
 | `/agents/approvals/{id}/deny` | POST | Deny a held agent action from the GUI |
-| `/approvals` | GET | JSON list of pending approvals |
+| `/approvals` | GET | JSON approval list; `?status=pending\|approved\|denied\|timed_out\|all` (default `pending`) and `?limit=1..200` (default 50) |
+| `/approvals/{id}` | GET | JSON detail for a single approval |
 | `/approvals/{id}/approve` | POST | JSON approve (releases held proxy request) |
 | `/approvals/{id}/deny` | POST | JSON deny (blocks held proxy request) |
 | `/blocked` | GET | Blocked-event review, filterable per profile (`?profile=<id>`) |
@@ -98,6 +108,9 @@ Blocked requests never reach the upstream provider. Redacted requests reach the 
 | `/partials/approvals` | GET | HTMX fragment for pending approvals |
 | `/partials/agent-actions` | GET | HTMX fragment for the agent action log |
 | `/partials/events/{id}/detail` | GET | HTMX fragment for privacy-safe event detail (rule ids, reason) |
+| `/partials/policies` | GET | HTMX fragment for the policy table |
+| `/partials/settings` | GET | HTMX fragment for the settings panel |
+| `/partials/prompts/{event_id}/detail` | GET | HTMX fragment for a single prompt-log entry |
 | `/static/*` | GET | Dashboard CSS |
 
 Clients should set their OpenAI base URL to:
