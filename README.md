@@ -148,16 +148,24 @@ Audit DB defaults to `data/aiwall.db`.
 | `AIWALL_CONFIG` | `aiwall.yaml` (local) / `/app/aiwall.yaml` (Docker) | Config file path |
 | `AIWALL_PORT` | `8080` | Proxy + dashboard port |
 | `OPENAI_API_KEY` | _(unset)_ | Upstream OpenAI-compatible key |
+| `OPENROUTER_API_KEY` | _(unset)_ | Key when using the commented Anthropic/OpenRouter provider |
+| `CURSOR_API_KEY` | _(unset)_ | Optional upstream key if a Cursor-compatible provider is enabled |
 | `AIWALL_API_KEY` | _(unset)_ | Client key when `gateway_auth.enabled: true` |
 | `OLLAMA_PORT` | `11434` | Host port with `--profile ollama` |
 
-`scripts/demo.sh` reads a few extra variables when you want to steer the demo:
+Copy `deploy/.env.example` to `.env` in the repo root. `scripts/dev.sh` and `scripts/demo.sh` load it automatically.
+
+`scripts/demo.sh` model selection (set these in `.env` instead of editing the script):
 
 | Variable | Default | Description |
 |---|---|---|
 | `AIWALL_BASE_URL` | `http://127.0.0.1:$AIWALL_PORT` | Gateway the demo sends requests to |
 | `AIWALL_DB` | `data/aiwall.db` | Audit DB the demo reads recent rows from |
-| `AIWALL_DEMO_MODEL` | auto-detected | `model` field sent on both demo requests; otherwise picked from a running Ollama or Docker container, falling back to `gpt-4o-mini` |
+| `AIWALL_DEMO_MODEL` | auto-detected | Forces the `model` field on both demo requests |
+| `AIWALL_OLLAMA_MODEL` | `llama3.2:1b` | Used when Ollama is detected |
+| `AIWALL_OPENAI_MODEL` | `gpt-4o-mini` | Used when falling back to a cloud provider |
+| `AIWALL_CLAUDE_MODEL` | _(unset)_ | Convenience for Claude curls; set `AIWALL_DEMO_MODEL` to this value to demo it |
+| `AIWALL_CURSOR_MODEL` | _(unset)_ | Convenience for Cursor/composer curls |
 | `AIWALL_DEMO_SECRET` | `AKIADEMOAIWALLTEST01` | Fake secret used to trigger the block path |
 
 `AIWALL_DEMO_MODEL` only changes the `model` field the client sends. AIWall still routes by `providers[].models` in `aiwall.yaml`.

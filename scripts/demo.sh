@@ -5,37 +5,46 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# shellcheck source=load_dotenv.sh
+source "${ROOT}/scripts/load_dotenv.sh"
+
 BASE_URL="${AIWALL_BASE_URL:-http://127.0.0.1:${AIWALL_PORT:-8080}}"
 DB_PATH="${AIWALL_DB:-${ROOT}/data/aiwall.db}"
 # Fake AWS key that is NOT the AWS docs placeholder (those are ignored when
 # scanners.ignore_examples is true).
 SECRET_SAMPLE="${AIWALL_DEMO_SECRET:-AKIADEMOAIWALLTEST01}"
 
+# Model ids come from .env / the environment — never hardcode product defaults
+# beyond these last-resort fallbacks when no env or upstream is available.
+OLLAMA_MODEL="${AIWALL_OLLAMA_MODEL:-llama3.2:1b}"
+OPENAI_MODEL="${AIWALL_OPENAI_MODEL:-gpt-4o-mini}"
+
 info() { printf '==> %s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
 
 pick_model() {
-  # Explicit override for lab / Cursor / custom upstreams:
+  # Explicit override for lab / Cursor / Claude / custom upstreams:
   #   export AIWALL_DEMO_MODEL=llama3.2:1b
   #   export AIWALL_DEMO_MODEL=composer-2.5
+  #   export AIWALL_DEMO_MODEL=anthropic/claude-3.5-sonnet
   if [[ -n "${AIWALL_DEMO_MODEL:-}" ]]; then
     echo "${AIWALL_DEMO_MODEL}"
     return
   fi
   if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'aiwall-ollama'; then
-    echo "llama3.2:1b"
+    echo "${OLLAMA_MODEL}"
     return
   fi
   if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'aiwall'; then
-    echo "gpt-4o-mini"
+    echo "${OPENAI_MODEL}"
     return
   fi
-  local ollama_url="${OLLAMA_URL:-http://127.0.0.1:11434}"
+  local ollama_url="${OLLAMA_URL:-http://127.0.0.1:${OLLAMA_PORT:-11434}}"
   if curl -sf "${ollama_url}/api/tags" >/dev/null 2>&1; then
-    echo "llama3.2:1b"
+    echo "${OLLAMA_MODEL}"
     return
   fi
-  echo "gpt-4o-mini"
+  echo "${OPENAI_MODEL}"
 }
 
 require_aiwall() {
@@ -48,7 +57,7 @@ require_aiwall() {
 
 send_allow_request() {
   local model="$1"
-  local auth_key="${OPENAI_API_KEY:-${CURSOR_API_KEY:-}}"
+  local auth_key="${OPENAI_API_KEY:-${OPENROUTER_API_KEY:-${CURSOR_API_KEY:-${ANTHROPIC_API_KEY:-}}}}"
   info "Sending normal request (model=${model})"
   curl -sS -w "\nHTTP %{http_code}\n" \
     "${BASE_URL}/v1/chat/completions" \
@@ -104,9 +113,9 @@ main() {
   require_aiwall
   local model
   model="$(pick_model)"
-  info "Using model=${model} (override with AIWALL_DEMO_MODEL=...)"
-  if [[ "${model}" == "gpt-4o-mini" && -z "${OPENAI_API_KEY:-}" && -z "${CURSOR_API_KEY:-}" ]]; then
-    warn "No Ollama detected and OPENAI_API_KEY/CURSOR_API_KEY unset; allow request may log decision=error"
+  info "Using model=${model} (set AIWALL_DEMO_MODEL or AIWALL_OLLAMA_MODEL / AIWALL_OPENAI_MODEL in .env)"
+  if [[ "${model}" == "${OPENAI_MODEL}" && -z "${OPENAI_API_KEY:-}" && -z "${CURSOR_API_KEY:-}" && -z "${OPENROUTER_API_KEY:-}" ]]; then
+    warn "No Ollama detected and no upstream API key set; allow request may log decision=error"
   fi
 
   send_allow_request "${model}"

@@ -3,17 +3,37 @@ server:
   port: 8080
 
 providers:
-  - name: openai
-    type: openai-compatible
-    base_url: https://api.openai.com/v1
-    api_key_env: OPENAI_API_KEY
-    models: ["gpt-*"]
-
   - name: ollama
     type: ollama
     # Local dev: Ollama on the same machine. Docker Compose: use http://ollama:11434
     base_url: http://127.0.0.1:11434
     models: ["llama*", "mistral*", "qwen*"]
+
+  # --- Optional cloud / remote providers (uncomment + set the matching env key) ---
+  #
+  # - name: openai
+  #   type: openai-compatible
+  #   base_url: https://api.openai.com/v1
+  #   api_key_env: OPENAI_API_KEY
+  #   models: ["gpt-*", "o1*", "o3*", "o4*"]
+  #
+  # Claude via an OpenAI-compatible relay (OpenRouter, LiteLLM, etc.).
+  # Anthropic's native Messages API is not OpenAI-shaped — do not point base_url
+  # at https://api.anthropic.com/v1 unless your relay already translates it.
+  # - name: anthropic
+  #   type: openai-compatible
+  #   base_url: https://openrouter.ai/api/v1
+  #   api_key_env: OPENROUTER_API_KEY   # or ANTHROPIC_API_KEY if your relay uses that name
+  #   models: ["claude-*", "anthropic/*"]
+  #
+  # Cursor IDE should set its OpenAI base URL to http://127.0.0.1:8080/v1 (this
+  # gateway), not the other way around. Only uncomment if you have a real
+  # OpenAI-compatible upstream that serves Cursor/composer model ids.
+  # - name: cursor
+  #   type: openai-compatible
+  #   base_url: https://api.openai.com/v1
+  #   api_key_env: CURSOR_API_KEY
+  #   models: ["composer-*", "cursor-*"]
 
 # Optional: load named policy presets (see presets/developer.yaml, presets/child.yaml)
 # presets:

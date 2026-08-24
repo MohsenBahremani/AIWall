@@ -10,12 +10,24 @@ providers:
     type: openai-compatible
     base_url: https://api.openai.com/v1
     api_key_env: OPENAI_API_KEY
-    models: ["gpt-*"]
+    models: ["gpt-*", "o1*", "o3*", "o4*"]
 
   - name: ollama
     type: ollama
     base_url: http://ollama:11434
     models: ["llama*", "mistral*", "qwen*"]
+
+  # - name: anthropic
+  #   type: openai-compatible
+  #   base_url: https://openrouter.ai/api/v1
+  #   api_key_env: OPENROUTER_API_KEY
+  #   models: ["claude-*", "anthropic/*"]
+  #
+  # - name: cursor
+  #   type: openai-compatible
+  #   base_url: https://api.openai.com/v1
+  #   api_key_env: CURSOR_API_KEY
+  #   models: ["composer-*", "cursor-*"]
 
 presets:
   - child

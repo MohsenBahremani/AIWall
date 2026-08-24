@@ -19,16 +19,28 @@ server:
   port: 8080
 
 providers:
-  - name: openai
-    type: openai-compatible
-    base_url: https://api.openai.com/v1
-    api_key_env: OPENAI_API_KEY
-    models: ["gpt-*"]
-
   - name: ollama
     type: ollama
     base_url: http://127.0.0.1:11434   # Docker Compose: http://ollama:11434
     models: ["llama*", "mistral*", "qwen*"]
+
+  # - name: openai
+  #   type: openai-compatible
+  #   base_url: https://api.openai.com/v1
+  #   api_key_env: OPENAI_API_KEY
+  #   models: ["gpt-*", "o1*", "o3*", "o4*"]
+  #
+  # - name: anthropic
+  #   type: openai-compatible
+  #   base_url: https://openrouter.ai/api/v1
+  #   api_key_env: OPENROUTER_API_KEY
+  #   models: ["claude-*", "anthropic/*"]
+  #
+  # - name: cursor
+  #   type: openai-compatible
+  #   base_url: https://api.openai.com/v1
+  #   api_key_env: CURSOR_API_KEY
+  #   models: ["composer-*", "cursor-*"]
 
 policies:
   - name: block-secrets
@@ -51,6 +63,8 @@ gateway_auth:
   enabled: false
   api_key_env: AIWALL_API_KEY
 ```
+
+`aiwall.yaml.example` ships with Ollama enabled and OpenAI / Anthropic (via OpenRouter) / Cursor providers commented out — uncomment the ones you use and set the matching key in `.env`.
 
 ## Schema reference
 
@@ -404,9 +418,16 @@ Community ships the registry but no checkers, so rolling budgets are inert until
 | `AIWALL_CONFIG` | `aiwall.yaml` | Path to configuration file |
 | `AIWALL_PORT` | `8080` | HTTP listen port |
 | `OPENAI_API_KEY` | _(unset)_ | Used when a provider sets `api_key_env: OPENAI_API_KEY` |
+| `OPENROUTER_API_KEY` | _(unset)_ | Used when a provider sets `api_key_env: OPENROUTER_API_KEY` (Claude via OpenRouter) |
+| `CURSOR_API_KEY` | _(unset)_ | Used when a provider sets `api_key_env: CURSOR_API_KEY` |
 | `AIWALL_API_KEY` | _(unset)_ | Shared admin client key when `gateway_auth.enabled: true` (profile keys also accepted) |
+| `AIWALL_DEMO_MODEL` | _(auto)_ | Model id for `scripts/demo.sh` (overrides auto-detect) |
+| `AIWALL_OLLAMA_MODEL` | `llama3.2:1b` | Demo fallback when Ollama is detected |
+| `AIWALL_OPENAI_MODEL` | `gpt-4o-mini` | Demo fallback for cloud providers |
 | `TELEGRAM_BOT_TOKEN` | _(unset)_ | Bot token when an alert channel sets `bot_token_env: TELEGRAM_BOT_TOKEN` |
 | `OLLAMA_PORT` | `11434` | Host port for Ollama in Docker Compose (`--profile ollama`) |
+
+Copy `deploy/.env.example` to `.env` at the repo root. `scripts/dev.sh` and `scripts/demo.sh` load it via `scripts/load_dotenv.sh` without overriding variables already exported in your shell.
 
 Provider-specific keys are read from the environment variable named in `api_key_env`.
 

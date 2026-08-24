@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# shellcheck source=load_dotenv.sh
+source "${ROOT}/scripts/load_dotenv.sh"
+
 export AIWALL_CONFIG="${AIWALL_CONFIG:-${ROOT}/aiwall.yaml}"
 if [[ ! -f "$AIWALL_CONFIG" ]]; then
   AIWALL_CONFIG="${ROOT}/aiwall.yaml.example"
