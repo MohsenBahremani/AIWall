@@ -91,6 +91,64 @@ def test_policy_engine_block_beats_redact(tmp_path) -> None:
     assert result.policy_id == "block-secrets"
 
 
+def test_policy_engine_cost_policy_reason_is_stable(tmp_path) -> None:
+    config_path = write_test_config(
+        tmp_path,
+        """  - name: block-high-cost
+    when: estimated_cost > 1.00
+    action: block""",
+    )
+    engine = PolicyEngine(config_path)
+    result = engine.evaluate(
+        PolicyContext(
+            body=b"{}",
+            model="gpt-4o",
+            input_length=9000,
+            estimated_cost=1.25,
+        )
+    )
+    assert result.action == "block"
+    assert result.policy_id == "block-high-cost"
+    assert result.reason == "cost-threshold"
+
+
+def test_policy_engine_length_policy_reason_is_stable(tmp_path) -> None:
+    config_path = write_test_config(
+        tmp_path,
+        """  - name: warn-long-input
+    when: input.length > 5
+    action: warn""",
+    )
+    engine = PolicyEngine(config_path)
+    result = engine.evaluate(
+        PolicyContext(body=b"hello world", model="gpt-4o-mini", input_length=11)
+    )
+    assert result.reason == "length-threshold"
+
+
+def test_policy_engine_never_leaks_raw_condition_text(tmp_path) -> None:
+    """Audit reasons are a closed vocabulary; SIEM rules match on them."""
+    config_path = write_test_config(
+        tmp_path,
+        """  - name: block-costly-child
+    when: user.role == "child" and estimated_cost > 0.50
+    action: block""",
+    )
+    engine = PolicyEngine(config_path)
+    result = engine.evaluate(
+        PolicyContext(
+            body=b"{}",
+            model="gpt-4o",
+            input_length=10,
+            estimated_cost=0.75,
+            user_role="child",
+        )
+    )
+    assert result.action == "block"
+    assert result.reason == "cost-threshold"
+    assert "estimated_cost" not in (result.reason or "")
+
+
 def test_policy_engine_hot_reload(tmp_path) -> None:
     config_path = write_test_config(tmp_path, "")
     engine = PolicyEngine(config_path)

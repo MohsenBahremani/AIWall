@@ -183,6 +183,7 @@ async def test_event_explorer_page_filters_and_detail(
     assert detail.status_code == 200
     assert "block-long-input" in detail.text
     assert "Reason" in detail.text
-    # Jinja escapes ">" in the when-expression reason.
-    assert "input.length" in detail.text
+    # Reasons are normalized; raw condition text never reaches the dashboard.
+    assert "length-threshold" in detail.text
+    assert "input.length" not in detail.text
     await http_client.aclose()

@@ -23,6 +23,11 @@ class PolicyResult:
 
 
 def _match_reason(when: str) -> str:
+    """Map a policy condition to a stable audit reason.
+
+    Reasons are a closed vocabulary so SIEM rules can match on them. Raw
+    condition text must never reach the audit log.
+    """
     expression = when.strip()
     if expression == "input.contains_secret":
         return "secret-detected"
@@ -30,9 +35,13 @@ def _match_reason(when: str) -> str:
         return "private-key-detected"
     if "input.category" in expression:
         return "category-blocked"
+    if "estimated_cost" in expression:
+        return "cost-threshold"
+    if "input.length" in expression:
+        return "length-threshold"
     if "user.role" in expression:
         return "role-policy"
-    return when
+    return "policy-matched"
 
 
 class PolicyEngine:

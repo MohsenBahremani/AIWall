@@ -186,6 +186,8 @@ def triggers_for_block(
     if reason == "cost-budget" or policy_id == "cost-budget":
         triggers.append(TRIGGER_COST_THRESHOLD)
         triggers.append(TRIGGER_DAILY_LIMIT)
+    elif reason == "cost-threshold":
+        triggers.append(TRIGGER_COST_THRESHOLD)
     secret_like = any(
         marker in rule_id
         for rule_id in rule_ids
