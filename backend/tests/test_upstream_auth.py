@@ -7,9 +7,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import httpx
+import pytest
+from httpx import ASGITransport, AsyncClient
+
 from app.config import ProviderConfig
 from app.dotenv_loader import load_dotenv, reset_dotenv_cache_for_tests
 from app.providers.adapters import build_upstream_headers
+from tests.conftest import write_test_config
 
 
 def test_load_dotenv_into_os_environ(tmp_path: Path, monkeypatch) -> None:
@@ -100,3 +105,89 @@ def test_client_authorization_wins_when_prefer_provider_key_false(monkeypatch) -
         prefer_provider_key=False,
     )
     assert headers["Authorization"] == "Bearer client-passthrough"
+
+
+@pytest.mark.asyncio
+async def test_models_list_honors_prefer_provider_key_false(tmp_path, monkeypatch) -> None:
+    from app.main import create_app
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    config_path = write_test_config(
+        tmp_path,
+        "",
+        extra_yaml="""
+upstream_auth:
+  prefer_provider_key: false
+""".strip(),
+    )
+
+    upstream_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        upstream_requests.append(request)
+        return httpx.Response(
+            200,
+            json={"object": "list", "data": [{"id": "gpt-4o-mini", "object": "model"}]},
+        )
+
+    http_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app = create_app(config_path=config_path, http_client=http_client)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/v1/models",
+            headers={"Authorization": "Bearer client-models-key"},
+        )
+
+    assert response.status_code == 200
+    openai_requests = [r for r in upstream_requests if "openai.com" in str(r.url)]
+    assert len(openai_requests) == 1
+    assert openai_requests[0].headers["authorization"] == "Bearer client-models-key"
+    await http_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_honors_prefer_provider_key_false(tmp_path, monkeypatch) -> None:
+    from app.main import create_app
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    config_path = write_test_config(
+        tmp_path,
+        "",
+        extra_yaml="""
+upstream_auth:
+  prefer_provider_key: false
+""".strip(),
+    )
+
+    upstream_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        upstream_requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "ok"}}],
+                "usage": {"total_tokens": 1},
+            },
+        )
+
+    http_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app = create_app(config_path=config_path, http_client=http_client)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": "Bearer client-chat-key"},
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": "hi"}],
+            },
+        )
+
+    assert response.status_code == 200
+    assert len(upstream_requests) == 1
+    assert upstream_requests[0].headers["authorization"] == "Bearer client-chat-key"
+    await http_client.aclose()

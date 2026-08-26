@@ -66,12 +66,19 @@ def _fallback_model_ids(provider: ProviderConfig, cost_estimator: CostEstimator)
 async def _fetch_provider_model_ids(
     provider: ProviderConfig,
     http_client: httpx.AsyncClient,
+    *,
+    incoming_headers: dict[str, str] | None = None,
+    prefer_provider_key: bool = True,
 ) -> list[str]:
     url = build_models_list_url(provider)
     if url is None:
         return []
 
-    headers = build_upstream_headers(provider, {})
+    headers = build_upstream_headers(
+        provider,
+        incoming_headers or {},
+        prefer_provider_key=prefer_provider_key,
+    )
     try:
         response = await http_client.get(url, headers=headers)
     except httpx.RequestError:
@@ -100,12 +107,20 @@ async def list_models(
     config: AIWallConfig,
     http_client: httpx.AsyncClient,
     cost_estimator: CostEstimator,
+    *,
+    incoming_headers: dict[str, str] | None = None,
 ) -> dict[str, object]:
     entries: list[dict[str, str | int]] = []
     seen: set[str] = set()
+    prefer_provider_key = config.upstream_auth.prefer_provider_key
 
     for provider in config.providers:
-        candidate_ids = await _fetch_provider_model_ids(provider, http_client)
+        candidate_ids = await _fetch_provider_model_ids(
+            provider,
+            http_client,
+            incoming_headers=incoming_headers,
+            prefer_provider_key=prefer_provider_key,
+        )
         if not candidate_ids:
             candidate_ids = _fallback_model_ids(provider, cost_estimator)
 

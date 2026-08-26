@@ -267,3 +267,42 @@ async def test_list_approvals_history_status(
         ids = [row["id"] for row in history.json()["approvals"]]
         assert created.id in ids
     await http_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_approve_requires_gateway_auth_when_enabled(tmp_path, monkeypatch) -> None:
+    from app.main import create_app
+
+    monkeypatch.setenv("AIWALL_API_KEY", "aiwall-secret")
+    config_path = write_test_config(
+        tmp_path,
+        "",
+        extra_yaml="""
+gateway_auth:
+  enabled: true
+  api_key_env: AIWALL_API_KEY
+""".strip(),
+    )
+    http_client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"ok": True}))
+    )
+    app = create_app(config_path=config_path, http_client=http_client)
+    pending = app.state.approval_store.create(
+        request_id="auth-1",
+        policy_id="agent-shell",
+        reason="require_approval",
+        summary="held",
+        provider="openai",
+        model="gpt-4o-mini",
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        denied = await client.post(f"/approvals/{pending.id}/approve")
+        assert denied.status_code == 401
+        allowed = await client.post(
+            f"/approvals/{pending.id}/approve",
+            headers={"Authorization": "Bearer aiwall-secret"},
+        )
+        assert allowed.status_code == 200
+    await http_client.aclose()

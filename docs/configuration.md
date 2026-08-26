@@ -410,6 +410,8 @@ Optional query param `decided_by` on approve/deny records who decided. Denied an
 
 Operators can also approve or deny from the control panel at `/agents`, which lists pending approvals and the recent agent action log.
 
+When `gateway_auth.enabled` is true, `POST /approvals/{id}/approve` and `/deny` require the same Bearer token as `/v1/*` (admin or profile key). Mobile push alerts link to the Pro inbox for review instead of unauthenticated one-click approve URLs.
+
 ### Cost budgets
 
 AIWall has two independent ways to stop expensive requests, and they write different audit reasons.

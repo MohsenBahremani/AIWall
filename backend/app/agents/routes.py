@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.agents.approval_models import APPROVAL_APPROVED, APPROVAL_DENIED
 from app.agents.approval_store import ApprovalError, PendingApproval
+from app.agents.auth import require_approval_auth
 
 
 def _approval_payload(item: PendingApproval) -> dict[str, object]:
@@ -90,6 +91,11 @@ def create_approvals_router() -> APIRouter:
         broker = getattr(request.app.state, "approval_broker", None)
         if store is None or broker is None:
             raise HTTPException(status_code=503, detail="Approval system unavailable")
+        require_approval_auth(
+            request.app.state.config,
+            request,
+            getattr(request.app.state, "profile_store", None),
+        )
         try:
             if status == APPROVAL_APPROVED:
                 item = store.approve(approval_id, decided_by=decided_by)

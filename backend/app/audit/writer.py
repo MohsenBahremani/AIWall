@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from app.agents.models import AgentActionRow
 from app.agents.types import AgentAction
 from app.audit.models import AuditEventRow
+from app.audit.reasons import assert_valid_audit_reason
 from app.storage.database import session_factory
 
 
@@ -190,6 +191,7 @@ class AuditWriter:
         self._session_factory = session_factory(engine)
 
     def write(self, event: AuditEvent) -> AuditEventRow:
+        assert_valid_audit_reason(event.reason)
         row = AuditEventRow(
             timestamp=event.timestamp or datetime.now(UTC),
             request_id=event.request_id,

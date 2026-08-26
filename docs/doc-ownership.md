@@ -12,5 +12,6 @@ Single source of truth for cross-repo facts. When a claim appears elsewhere, lin
 | Core ↔ detection pack compatibility | [AIWall-detections `validation/compatibility.json`](https://github.com/MohsenBahremani/AIWall-detections/blob/main/validation/compatibility.json) |
 | Release history | [`CHANGELOG.md`](../CHANGELOG.md) |
 | Package version | [`pyproject.toml`](../pyproject.toml) and [`backend/app/__init__.py`](../backend/app/__init__.py) |
+| Pro plugin version | [AIWall-pro `pyproject.toml`](https://github.com/MohsenBahremani/AIWall-pro/blob/main/pyproject.toml) and `plugin.info.version` |
 
 CI checks version alignment via `backend/tests/test_doc_drift.py`.

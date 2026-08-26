@@ -48,7 +48,7 @@ def test_usage_for_user_aggregates_billable_events(tmp_path: Path) -> None:
             provider="openai",
             model="gpt-4o-mini",
             decision="block",
-            reason="policy",
+            reason="proxied",
             input_length=10,
             output_length=0,
             latency_ms=1.0,

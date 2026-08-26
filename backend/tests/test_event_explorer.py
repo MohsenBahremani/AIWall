@@ -78,7 +78,7 @@ def test_search_events_filters_and_paginates(tmp_path: Path) -> None:
             model="gpt-4o",
             user_id="2",
             policy_id="block-long-input",
-            reason="input.length > 5",
+            reason="length-threshold",
             timestamp=now - timedelta(hours=3),
         )
     )

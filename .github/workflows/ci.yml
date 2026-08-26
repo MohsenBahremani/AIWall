@@ -11,16 +11,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: AIWall
+
+      - uses: actions/checkout@v4
+        with:
+          repository: MohsenBahremani/AIWall-detections
+          path: AIWall-detections
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
+        working-directory: AIWall
         run: pip install -e ".[dev]"
 
       - name: Ruff
+        working-directory: AIWall
         run: ruff check backend
 
       - name: Pytest
+        working-directory: AIWall
         run: pytest
