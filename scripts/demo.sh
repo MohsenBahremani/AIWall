@@ -57,7 +57,10 @@ require_aiwall() {
 
 send_allow_request() {
   local model="$1"
-  local auth_key="${OPENAI_API_KEY:-${OPENROUTER_API_KEY:-${CURSOR_API_KEY:-${ANTHROPIC_API_KEY:-}}}}"
+  # Only send AIWall gateway/profile keys to the proxy. Upstream provider keys
+  # (OPENAI_API_KEY, CURSOR_API_KEY, …) are read by AIWall from .env via
+  # providers[].api_key_env — do not forward them as client Authorization.
+  local auth_key="${AIWALL_API_KEY:-}"
   info "Sending normal request (model=${model})"
   curl -sS -w "\nHTTP %{http_code}\n" \
     "${BASE_URL}/v1/chat/completions" \
@@ -114,8 +117,11 @@ main() {
   local model
   model="$(pick_model)"
   info "Using model=${model} (set AIWALL_DEMO_MODEL or AIWALL_OLLAMA_MODEL / AIWALL_OPENAI_MODEL in .env)"
-  if [[ "${model}" == "${OPENAI_MODEL}" && -z "${OPENAI_API_KEY:-}" && -z "${CURSOR_API_KEY:-}" && -z "${OPENROUTER_API_KEY:-}" ]]; then
-    warn "No Ollama detected and no upstream API key set; allow request may log decision=error"
+  if [[ "${model}" == "${OPENAI_MODEL}" && -z "${OPENAI_API_KEY:-}" && -z "${OPENROUTER_API_KEY:-}" ]]; then
+    warn "No Ollama detected and no upstream API key in .env (OPENAI_API_KEY / OPENROUTER_API_KEY); allow request may log decision=error"
+  fi
+  if [[ "${model}" == composer-* || "${model}" == cursor-* ]]; then
+    warn "composer/cursor model ids need a real OpenAI-compatible upstream in aiwall.yaml — api.openai.com rejects CURSOR_API_KEY keys"
   fi
 
   send_allow_request "${model}"

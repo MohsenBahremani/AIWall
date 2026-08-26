@@ -34,14 +34,27 @@ def build_upstream_headers(
     provider: ProviderConfig,
     incoming_headers: dict[str, str],
 ) -> dict[str, str]:
+    """Build headers for the upstream provider.
+
+    Prefer the provider's ``api_key_env`` value from the process environment
+    (loaded from ``.env`` at startup). Only fall back to the client's
+    ``Authorization`` when no provider key is configured — otherwise a demo
+    or IDE key would clobber the real upstream credential.
+    """
     headers = {"Content-Type": "application/json"}
 
-    authorization = incoming_headers.get("authorization") or incoming_headers.get("Authorization")
+    provider_key = ""
+    if provider.api_key_env:
+        provider_key = (os.environ.get(provider.api_key_env) or "").strip()
+
+    if provider_key:
+        headers["Authorization"] = f"Bearer {provider_key}"
+        return headers
+
+    authorization = incoming_headers.get("authorization") or incoming_headers.get(
+        "Authorization"
+    )
     if authorization:
         headers["Authorization"] = authorization
-    elif provider.api_key_env:
-        api_key = os.environ.get(provider.api_key_env)
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
 
     return headers

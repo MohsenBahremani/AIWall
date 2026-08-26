@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+import os
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -55,7 +56,16 @@ def create_app(
     recording_notifier: RecordingNotifier | None = None,
     plugins: Sequence[AIWallPlugin] | None = None,
 ) -> FastAPI:
-    resolved_path = resolve_config_path(config_path)
+    # Load repo-root .env before any api_key_env / alert token lookups.
+    # Tests set AIWALL_SKIP_DOTENV=1 so the developer's real .env cannot leak.
+    from app.dotenv_loader import load_dotenv
+
+    if not os.environ.get("AIWALL_SKIP_DOTENV", "").strip():
+        load_dotenv()
+        resolved_path = resolve_config_path(config_path)
+        load_dotenv(resolved_path.parent / ".env")
+    else:
+        resolved_path = resolve_config_path(config_path)
     config = load_config(resolved_path)
     engine, audit_writer, profile_store, approval_store = _init_storage(config)
     prices_path = resolve_prices_path(resolved_path, config.pricing.file)

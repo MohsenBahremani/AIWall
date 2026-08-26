@@ -13,10 +13,14 @@ LOAD_DOTENV = ROOT / "scripts" / "load_dotenv.sh"
 
 
 def _run_loader(env_file: Path, extra_env: dict[str, str] | None = None) -> dict[str, str]:
-    env = os.environ.copy()
+    # Start from a clean env so a polluted parent process cannot mask .env values.
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "HOME": os.environ.get("HOME", ""),
+        "AIWALL_ENV_FILE": str(env_file),
+    }
     if extra_env:
         env.update(extra_env)
-    env["AIWALL_ENV_FILE"] = str(env_file)
     # Print selected keys after sourcing so we can assert without polluting the
     # pytest process itself.
     script = f"""

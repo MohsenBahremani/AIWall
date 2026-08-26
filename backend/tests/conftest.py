@@ -9,6 +9,12 @@ from httpx import ASGITransport, AsyncClient
 from app.main import create_app
 
 
+@pytest.fixture(autouse=True)
+def _skip_repo_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the developer's real .env out of unit tests."""
+    monkeypatch.setenv("AIWALL_SKIP_DOTENV", "1")
+
+
 def write_test_prices(config_path: Path) -> Path:
     prices_path = config_path.parent / "prices.yaml"
     prices_path.write_text(

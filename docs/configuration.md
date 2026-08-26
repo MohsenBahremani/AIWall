@@ -84,7 +84,7 @@ Each provider entry:
 | `name` | string | yes | Identifier used in audit logs and pricing |
 | `type` | string | yes | `openai-compatible` or `ollama` |
 | `base_url` | string | yes | Upstream API base URL |
-| `api_key_env` | string | no | Environment variable name for the upstream API key |
+| `api_key_env` | string | no | **Name** of the environment variable holding the upstream API key (e.g. `OPENAI_API_KEY`). AIWall loads repo-root `.env` at startup. Do not paste the secret into YAML. When set and present, this key is used for upstream calls and wins over any client `Authorization` header. |
 | `models` | list of strings | no | `fnmatch` patterns; first matching provider wins |
 
 **Provider types**
