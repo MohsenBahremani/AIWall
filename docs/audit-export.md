@@ -52,6 +52,8 @@ use **`.jsonl`** for log shipping and detection packs.
 
 `reason` is a stable, closed vocabulary so SIEM rules can match on it directly. Raw policy condition text is never emitted.
 
+Canonical list (exact values + dynamic patterns): [`backend/app/audit/reasons.py`](../backend/app/audit/reasons.py) in core, mirrored as [`AIWall-detections/validation/audit_reasons.json`](https://github.com/MohsenBahremani/AIWall-detections/blob/main/validation/audit_reasons.json). CI in both repos asserts new reasons update the contract before merge.
+
 | Reason | Emitted when |
 |---|---|
 | `proxied` | Request was allowed and forwarded |
