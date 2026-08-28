@@ -1,6 +1,6 @@
 # Audit export (JSON Lines)
 
-Stable NDJSON schema for SIEM and [AIWall-detections](https://github.com/MohsenBah/AIWall-detections) (Phase 6.1).
+Stable NDJSON schema for SIEM and [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections) (Phase 6.1).
 
 ## Schema id
 
@@ -82,4 +82,4 @@ The two cost reasons are distinct on purpose: `cost-threshold` is a single expen
 
 - Additive fields may appear in a future `aiwall.audit.v2` (new schema id).
 - Consumers should ignore unknown fields.
-- Detection content: [AIWall-detections `docs/data-sources.md`](https://github.com/MohsenBah/AIWall-detections/blob/main/docs/data-sources.md).
+- Detection content: [AIWall-detections `docs/data-sources.md`](https://github.com/MohsenBahremani/AIWall-detections/blob/main/docs/data-sources.md).

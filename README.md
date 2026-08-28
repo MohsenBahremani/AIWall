@@ -12,8 +12,8 @@ AIWall sits between your apps and AI providers. You get visibility, policy enfor
 
 **Still in progress:**
 
-- Detection packs (Wazuh, Sigma, Grafana) in [AIWall-detections](https://github.com/MohsenBah/AIWall-detections) — audit JSONL schema (`aiwall.audit.v1`) is frozen first
-- Red-team payloads and regression checks in [AIWall-redteam](https://github.com/MohsenBah/AIWall-redteam)
+- Detection packs (Wazuh, Sigma, Grafana) in [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections) — audit JSONL schema (`aiwall.audit.v1`) is frozen first
+- Red-team payloads and regression checks in [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam)
 
 ## What AIWall does
 
@@ -61,9 +61,9 @@ Updates: `/path/to/AIWall-pro/scripts/update.sh`. See the Pro README for systemd
 
 | Repository | Purpose |
 |---|---|
-| [AIWall](https://github.com/MohsenBah/AIWall) | Core gateway — proxy, policies, control panel |
-| [AIWall-detections](https://github.com/MohsenBah/AIWall-detections) | Wazuh / Sigma / Grafana / SIEM content |
-| [AIWall-redteam](https://github.com/MohsenBah/AIWall-redteam) | Attack payloads and mitigation checks |
+| [AIWall](https://github.com/MohsenBahremani/AIWall) | Core gateway — proxy, policies, control panel |
+| [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections) | Wazuh / Sigma / Grafana / SIEM content |
+| [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam) | Attack payloads and mitigation checks |
 
 ## Quick start (~15 minutes)
 
@@ -72,7 +72,7 @@ Get AIWall running, proxy a request, trigger a secret block, and see it on the d
 ### 1. Start AIWall (Docker)
 
 ```bash
-git clone https://github.com/MohsenBah/AIWall.git
+git clone https://github.com/MohsenBahremani/AIWall.git
 cd AIWall
 docker compose -f deploy/docker-compose.yml up --build -d
 curl http://127.0.0.1:8080/healthz
@@ -220,4 +220,4 @@ Issues and PRs are welcome. External contributions use a Developer Certificate o
 
 ## Background
 
-AIWall grew out of work on [MedSecLab](https://github.com/MohsenBah/MedSecLab), a simulated healthcare AI security lab. This repo turns those ideas into something you can run at home or at work.
+AIWall grew out of work on [MedSecLab](https://github.com/MohsenBahremani/MedSecLab), a simulated healthcare AI security lab. This repo turns those ideas into something you can run at home or at work.

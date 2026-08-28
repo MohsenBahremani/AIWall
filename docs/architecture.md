@@ -163,5 +163,5 @@ The Docker image runs as a non-root `aiwall` user, serves uvicorn on port 8080 (
 
 | Repo | Purpose |
 |---|---|
-| [AIWall-detections](https://github.com/MohsenBah/AIWall-detections) | SIEM rules and dashboards |
-| [AIWall-redteam](https://github.com/MohsenBah/AIWall-redteam) | Adversarial test payloads |
+| [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections) | SIEM rules and dashboards |
+| [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam) | Adversarial test payloads |
