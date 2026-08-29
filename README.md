@@ -208,6 +208,7 @@ Tune providers and policies in `aiwall.yaml`. Deeper reading:
 - [docs/agent-guardrails.md](docs/agent-guardrails.md) — tool / shell / file guardrails
 - [docs/audit-export.md](docs/audit-export.md) — SIEM JSONL (`aiwall.audit.v1`)
 - [docs/architecture.md](docs/architecture.md) — request flow
+- [docs/benchmarks.md](docs/benchmarks.md) — local proxy overhead measurements
 - [docs/plugins.md](docs/plugins.md) — entry-point plugins: routes, alert channels, secret rules, presets, budget checkers
 
 ## Contributing
