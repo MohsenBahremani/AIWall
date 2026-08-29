@@ -368,7 +368,11 @@ class ChatCompletionProxy:
         incoming_headers = _filter_forward_headers(request.headers)
         if _should_strip_client_auth(self._config, identity):
             incoming_headers = strip_client_authorization(incoming_headers)
-        upstream_headers = build_upstream_headers(provider, incoming_headers)
+        upstream_headers = build_upstream_headers(
+            provider,
+            incoming_headers,
+            prefer_provider_key=self._config.upstream_auth.prefer_provider_key,
+        )
         request_id = new_request_id()
         input_length = measure_input_length(body)
         started = time.perf_counter()

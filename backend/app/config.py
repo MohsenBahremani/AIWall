@@ -50,6 +50,12 @@ class GatewayAuthConfig(BaseModel):
     api_key_env: str = "AIWALL_API_KEY"
 
 
+class UpstreamAuthConfig(BaseModel):
+    """Which credential wins when both a provider env key and client Authorization exist."""
+
+    prefer_provider_key: bool = True
+
+
 class AlertChannelConfig(BaseModel):
     """One alert destination. Channel-specific fields are used by later phases."""
 
@@ -148,6 +154,7 @@ class AIWallConfig(BaseModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     pricing: PricingConfig = Field(default_factory=PricingConfig)
     gateway_auth: GatewayAuthConfig = Field(default_factory=GatewayAuthConfig)
+    upstream_auth: UpstreamAuthConfig = Field(default_factory=UpstreamAuthConfig)
     alerts: list[AlertChannelConfig] = Field(default_factory=list)
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
     agent_guardrails: AgentGuardrailsConfig = Field(default_factory=AgentGuardrailsConfig)

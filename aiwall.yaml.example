@@ -89,6 +89,10 @@ scanners:
 #   enabled: true
 #   api_key_env: AIWALL_API_KEY
 
+# Optional: upstream credential precedence (default prefers provider api_key_env).
+# upstream_auth:
+#   prefer_provider_key: true
+
 # Optional: alert channels
 # Quote the "on" key — unquoted `on:` is a YAML boolean.
 # alerts:

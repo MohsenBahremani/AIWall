@@ -244,6 +244,16 @@ Profile keys are stored as SHA-256 hashes only. A successful profile-authenticat
 
 Leave disabled for trusted localhost / homelab networks. Enable when exposing AIWall beyond your LAN. Even with auth disabled, presenting a valid profile key still attributes the request to that profile.
 
+**Spend exposure:** With `gateway_auth.enabled: false` and a provider `api_key_env` set, anyone who can reach the port can spend your upstream credits — AIWall substitutes the owner's provider key for every request. Enable gateway auth (or profile keys) on shared hosts. The default upstream behavior uses the provider env key when present; see `upstream_auth` to prefer client-supplied keys instead.
+
+### `upstream_auth`
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `prefer_provider_key` | boolean | `true` | When true, use the provider's `api_key_env` for upstream calls when set. When false, forward the client's `Authorization` header when present and only fall back to the provider key if the client sent none. |
+
+Homelab default (`true`) prevents IDE or demo client keys from clobbering the real upstream credential. Set `false` only when AIWall is a deliberate BYOK relay and clients supply their own provider keys.
+
 ### Daily usage limits
 
 Profiles may set optional daily caps:

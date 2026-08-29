@@ -33,27 +33,34 @@ def build_chat_completions_url(provider: ProviderConfig) -> str:
 def build_upstream_headers(
     provider: ProviderConfig,
     incoming_headers: dict[str, str],
+    *,
+    prefer_provider_key: bool = True,
 ) -> dict[str, str]:
     """Build headers for the upstream provider.
 
-    Prefer the provider's ``api_key_env`` value from the process environment
-    (loaded from ``.env`` at startup). Only fall back to the client's
-    ``Authorization`` when no provider key is configured — otherwise a demo
-    or IDE key would clobber the real upstream credential.
+    When ``prefer_provider_key`` is true (default), use the provider's
+    ``api_key_env`` value from the process environment when set. Otherwise
+    prefer the client's ``Authorization`` header and only fall back to the
+    provider key when the client did not send one.
     """
     headers = {"Content-Type": "application/json"}
+
+    authorization = incoming_headers.get("authorization") or incoming_headers.get(
+        "Authorization"
+    )
 
     provider_key = ""
     if provider.api_key_env:
         provider_key = (os.environ.get(provider.api_key_env) or "").strip()
 
+    if not prefer_provider_key and authorization:
+        headers["Authorization"] = authorization
+        return headers
+
     if provider_key:
         headers["Authorization"] = f"Bearer {provider_key}"
         return headers
 
-    authorization = incoming_headers.get("authorization") or incoming_headers.get(
-        "Authorization"
-    )
     if authorization:
         headers["Authorization"] = authorization
 

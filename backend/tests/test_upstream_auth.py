@@ -83,3 +83,20 @@ def test_client_authorization_used_when_no_api_key_env() -> None:
         {"Authorization": "Bearer client-only"},
     )
     assert headers["Authorization"] == "Bearer client-only"
+
+
+def test_client_authorization_wins_when_prefer_provider_key_false(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-provider")
+    provider = ProviderConfig(
+        name="openai",
+        type="openai-compatible",
+        base_url="https://api.openai.com/v1",
+        api_key_env="OPENAI_API_KEY",
+        models=["gpt-*"],
+    )
+    headers = build_upstream_headers(
+        provider,
+        {"Authorization": "Bearer client-passthrough"},
+        prefer_provider_key=False,
+    )
+    assert headers["Authorization"] == "Bearer client-passthrough"
