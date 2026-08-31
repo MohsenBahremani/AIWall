@@ -61,6 +61,21 @@ def discover_plugins() -> list[AIWallPlugin]:
     return plugins
 
 
+def register_plugin_preset_dirs(plugins: list[AIWallPlugin]) -> None:
+    """Register plugin preset directories before ``load_config`` merges presets."""
+    for plugin in plugins:
+        hook = getattr(plugin, "register_preset_dirs", None)
+        if not callable(hook):
+            continue
+        try:
+            hook()
+        except Exception:
+            logger.exception(
+                "Plugin %s failed register_preset_dirs",
+                getattr(getattr(plugin, "info", None), "name", plugin),
+            )
+
+
 def register_plugins(
     app: FastAPI,
     config: AIWallConfig,

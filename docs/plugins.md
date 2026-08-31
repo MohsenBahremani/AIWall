@@ -12,6 +12,7 @@ Each entry point loads a factory callable (or instance) implementing `AIWallPlug
 |---|---|
 | `info` | `PluginInfo(name, version, edition)` — listed on `/healthz` |
 | `register(app, *, config)` | Mount routes, services, or hooks on the core FastAPI app |
+| `register_preset_dirs()` *(optional)* | Register preset YAML directories **before** config load |
 | `register_alert_notifiers(registry, *, config)` *(optional)* | Register custom `alerts[].channel` notifier factories |
 | `register_secret_rules(registry, *, config)` *(optional)* | Register extra secret detectors (`SecretRuleDef`) |
 
@@ -53,15 +54,17 @@ Custom rules persisted by the Pro editor live in `custom-scanner-rules.yaml` nex
 
 ### Extra policy presets
 
-Plugins may register additional preset directories:
+Plugins may register additional preset directories. Implement `register_preset_dirs()` so presets are available when `preset-selection.yaml` or `aiwall.yaml` is loaded:
 
 ```python
 from app.presets import register_preset_dir
 from pathlib import Path
 
-def register(self, app, *, config):
+def register_preset_dirs(self) -> None:
     register_preset_dir(Path(__file__).resolve().parent / "presets")
 ```
+
+You can also call `register_preset_dir` from `register()` for route-only plugins, but Pro packs selected during onboarding require the early hook.
 
 Each `{name}.yaml` file must contain a `policies:` list (optional `meta:` for UI title/summary).
 

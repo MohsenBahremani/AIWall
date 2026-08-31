@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Mohsen Bah
 # SPDX-License-Identifier: Apache-2.0
+import os
 from pathlib import Path
+
+os.environ.setdefault("AIWALL_SKIP_DOTENV", "1")
+os.environ.setdefault("AIWALL_SKIP_APP_BOOT", "1")
 
 import httpx
 import pytest

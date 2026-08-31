@@ -29,6 +29,7 @@ from app.plugins.loader import (
     collect_budget_checkers,
     collect_secret_rules,
     discover_plugins,
+    register_plugin_preset_dirs,
     register_plugins,
 )
 from app.policies.engine import PolicyEngine
@@ -66,11 +67,12 @@ def create_app(
         load_dotenv(resolved_path.parent / ".env")
     else:
         resolved_path = resolve_config_path(config_path)
+    resolved_plugins = list(plugins) if plugins is not None else discover_plugins()
+    register_plugin_preset_dirs(resolved_plugins)
     config = load_config(resolved_path)
     engine, audit_writer, profile_store, approval_store = _init_storage(config)
     prices_path = resolve_prices_path(resolved_path, config.pricing.file)
     cost_estimator = CostEstimator(prices_path)
-    resolved_plugins = list(plugins) if plugins is not None else discover_plugins()
     alert_notifiers = collect_alert_notifiers(resolved_plugins, config=config)
     plugin_secret_rules = collect_secret_rules(resolved_plugins, config=config)
     budget_checkers = collect_budget_checkers(resolved_plugins, config=config)
@@ -205,4 +207,5 @@ def _register_web(app: FastAPI) -> None:
     register_web(app)
 
 
-app = create_app()
+if not os.environ.get("AIWALL_SKIP_APP_BOOT", "").strip():
+    app = create_app()
