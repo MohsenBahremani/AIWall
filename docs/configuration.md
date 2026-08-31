@@ -319,6 +319,8 @@ Webhook channels POST JSON with structured fields (`source`, `trigger`, `title`,
 
 The ntfy channel POSTs plain text to `{server}/{topic}` with `Title`, `Tags`, and `Priority` headers (secret blocks use high priority).
 
+For SIEM-side routing by Wazuh rule id or Loki query name (after `GET /events/export.jsonl`), see [AIWall-detections alert routing](https://github.com/MohsenBah/AIWall-detections/blob/main/docs/alert-routing.md).
+
 `provider_error` fires when an upstream provider is unreachable or returns HTTP 5xx during a proxied request, and when optional heartbeat probes first detect an outage (see `heartbeat` below). Point a channel at `provider_error` to get notified of provider downtime.
 
 `approval_required` fires when an agent action is held for human approval (Phase 5.6).
