@@ -31,7 +31,8 @@ def _fake_stripe_restricted_key() -> str:
 
 
 def _fake_google_api_key() -> str:
-    body = "".join(secrets.choice(string.ascii_letters + string.digits + "-_") for _ in range(35))
+    # Alphanumeric suffix only: a trailing '-' breaks the regex word boundary (\b).
+    body = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(35))
     return "google AIza" + body
 
 

@@ -8,7 +8,7 @@ from app.providers.adapters import (
     build_chat_completions_url,
     build_upstream_headers,
 )
-from app.providers.router import extract_model_from_body, select_provider
+from app.providers.router import extract_model_from_body, select_provider, try_select_provider
 
 __all__ = [
     "OLLAMA",
@@ -17,4 +17,5 @@ __all__ = [
     "build_upstream_headers",
     "extract_model_from_body",
     "select_provider",
+    "try_select_provider",
 ]

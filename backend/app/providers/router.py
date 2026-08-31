@@ -22,6 +22,13 @@ def provider_matches_model(provider: ProviderConfig, model: str) -> bool:
     return any(model_matches_pattern(model, pattern) for pattern in provider.models)
 
 
+def try_select_provider(config: AIWallConfig, model: str) -> ProviderConfig | None:
+    for provider in config.providers:
+        if provider_matches_model(provider, model):
+            return provider
+    return None
+
+
 def select_provider(config: AIWallConfig, model: str) -> ProviderConfig:
     if not config.providers:
         raise HTTPException(
@@ -29,14 +36,13 @@ def select_provider(config: AIWallConfig, model: str) -> ProviderConfig:
             detail="No providers configured",
         )
 
-    for provider in config.providers:
-        if provider_matches_model(provider, model):
-            return provider
-
-    raise HTTPException(
-        status_code=404,
-        detail=f"No provider configured for model: {model}",
-    )
+    provider = try_select_provider(config, model)
+    if provider is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No provider configured for model: {model}",
+        )
+    return provider
 
 
 def extract_model_from_body(body: bytes) -> str:

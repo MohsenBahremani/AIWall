@@ -7,6 +7,60 @@ pytest.importorskip("jinja2")
 
 
 @pytest.mark.asyncio
+async def test_dashboard_hides_pro_nav_without_plugins(tmp_path) -> None:
+    import httpx
+
+    from app.main import create_app
+    from tests.conftest import write_test_config
+
+    config_path = write_test_config(tmp_path, "")
+    mock_transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"ok": True}))
+    http_client = httpx.AsyncClient(transport=mock_transport)
+    app = create_app(config_path=config_path, http_client=http_client, plugins=[])
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/")
+
+    assert response.status_code == 200
+    assert 'href="/pro/profiles"' not in response.text
+    assert 'class="nav-pro"' not in response.text
+    await http_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_dashboard_shows_pro_nav_when_pro_plugin_loaded(tmp_path) -> None:
+    import httpx
+
+    from app.main import create_app
+    from app.plugins.base import PluginInfo
+    from tests.conftest import write_test_config
+
+    class _ProStub:
+        @property
+        def info(self) -> PluginInfo:
+            return PluginInfo(name="aiwall-pro", version="0.1.0", edition="pro")
+
+        def register(self, app, *, config) -> None:
+            return None
+
+    config_path = write_test_config(tmp_path, "")
+    mock_transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"ok": True}))
+    http_client = httpx.AsyncClient(transport=mock_transport)
+    app = create_app(config_path=config_path, http_client=http_client, plugins=[_ProStub()])
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/")
+
+    assert response.status_code == 200
+    assert 'href="/pro/profiles"' in response.text
+    assert 'nav-pro-slot' in response.text
+    assert 'nav-dropdown-trigger nav-pro' in response.text
+    await http_client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_dashboard_renders_empty_state(tmp_path) -> None:
     import httpx
 

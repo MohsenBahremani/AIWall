@@ -1,0 +1,45 @@
+<div class="topbar-nav">
+    <nav class="nav nav-main" aria-label="AIWall">
+        <a href="/"{% if request.url.path == '/' %} class="is-active"{% endif %}>Dashboard</a>
+        <a href="/events"{% if request.url.path.startswith('/events') %} class="is-active"{% endif %}>Event log</a>
+        {% if log_raw_prompts_enabled %}
+        <a href="/prompts"{% if request.url.path.startswith('/prompts') %} class="is-active"{% endif %}>Prompt log</a>
+        {% endif %}
+        <a href="/usage"{% if request.url.path.startswith('/usage') %} class="is-active"{% endif %}>Model usage</a>
+        <a href="/policies"{% if request.url.path.startswith('/policies') %} class="is-active"{% endif %}>Policies</a>
+        <a href="/agents"{% if request.url.path.startswith('/agents') %} class="is-active"{% endif %}>Agents</a>
+        <a href="/settings"{% if request.url.path.startswith('/settings') %} class="is-active"{% endif %}>Settings</a>
+        <a href="/blocked"{% if request.url.path.startswith('/blocked') %} class="is-active"{% endif %}>Blocked</a>
+        <a href="/reports/weekly"{% if request.url.path.startswith('/reports') %} class="is-active"{% endif %}>Weekly report</a>
+    </nav>
+    {% if pro_nav_enabled %}
+    <nav class="nav nav-pro-slot" aria-label="AIWall Pro">
+        <details class="nav-dropdown nav-dropdown-end">
+            <summary class="nav-dropdown-trigger nav-pro{% if pro_nav_on_pro_page %} is-active{% endif %}">
+                Pro{% if pro_nav_on_pro_page %} · {{ pro_nav_label }}{% endif %}
+                <span class="nav-caret" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nav-dropdown-panel nav-dropdown-panel-cols">
+                <div class="nav-dropdown-group">
+                    <p class="nav-dropdown-label">Household</p>
+                    <a href="/pro/setup"{% if request.url.path.startswith('/pro/setup') %} class="is-active"{% endif %}>Setup</a>
+                    <a href="/pro/profiles"{% if request.url.path.startswith('/pro/profiles') %} class="is-active"{% endif %}>Profiles</a>
+                    <a href="/pro/reports/family"{% if request.url.path.startswith('/pro/reports') %} class="is-active"{% endif %}>Family report</a>
+                    <a href="/pro/approvals"{% if request.url.path.startswith('/pro/approvals') %} class="is-active"{% endif %}>Approvals</a>
+                </div>
+                <div class="nav-dropdown-group">
+                    <p class="nav-dropdown-label">Controls</p>
+                    <a href="/pro/budgets"{% if request.url.path.startswith('/pro/budgets') %} class="is-active"{% endif %}>Budgets</a>
+                    <a href="/pro/presets"{% if request.url.path.startswith('/pro/presets') %} class="is-active"{% endif %}>Presets</a>
+                    <a href="/pro/scanners"{% if request.url.path.startswith('/pro/scanners') %} class="is-active"{% endif %}>Scanners</a>
+                </div>
+                <div class="nav-dropdown-group">
+                    <p class="nav-dropdown-label">Operations</p>
+                    <a href="/pro/push"{% if request.url.path.startswith('/pro/push') %} class="is-active"{% endif %}>Mobile push</a>
+                    <a href="/pro/backup"{% if request.url.path.startswith('/pro/backup') %} class="is-active"{% endif %}>Backup</a>
+                </div>
+            </div>
+        </details>
+    </nav>
+    {% endif %}
+</div>

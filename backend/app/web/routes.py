@@ -41,10 +41,53 @@ EXPLORER_WINDOW_OPTIONS = (24, 72, 168, 0)  # 0 = all time
 DEFAULT_PROMPT_PAGE_SIZE = 25
 
 
+def _pro_nav_context(request: Request) -> dict[str, object]:
+    """Expose Pro nav link when the aiwall-pro plugin is registered."""
+    plugins = getattr(request.app.state, "plugins", None) or []
+    for plugin in plugins:
+        name = getattr(plugin, "name", None)
+        if name == "aiwall-pro":
+            path = request.url.path
+            label = "Menu"
+            if path.startswith("/pro/setup"):
+                label = "Setup"
+            elif path.startswith("/pro/profiles"):
+                label = "Profiles"
+            elif path.startswith("/pro/budgets"):
+                label = "Budgets"
+            elif path.startswith("/pro/approvals"):
+                label = "Approvals"
+            elif path.startswith("/pro/presets"):
+                label = "Presets"
+            elif path.startswith("/pro/scanners"):
+                label = "Scanners"
+            elif path.startswith("/pro/push"):
+                label = "Push"
+            elif path.startswith("/pro/reports"):
+                label = "Family"
+            elif path.startswith("/pro/backup"):
+                label = "Backup"
+            return {
+                "pro_nav_enabled": True,
+                "pro_nav_href": "/pro/profiles",
+                "pro_nav_on_pro_page": path.startswith("/pro/"),
+                "pro_nav_label": label,
+            }
+    return {
+        "pro_nav_enabled": False,
+        "pro_nav_href": "",
+        "pro_nav_on_pro_page": False,
+        "pro_nav_label": "",
+    }
+
+
 def build_templates() -> Jinja2Templates:
     def ui_flags(request: Request) -> dict[str, object]:
         config = request.app.state.policy_engine.reload()
-        return {"log_raw_prompts_enabled": bool(config.logging.log_raw_prompts)}
+        return {
+            "log_raw_prompts_enabled": bool(config.logging.log_raw_prompts),
+            **_pro_nav_context(request),
+        }
 
     templates = Jinja2Templates(
         directory=str(TEMPLATES_DIR),

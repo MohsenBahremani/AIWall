@@ -5,7 +5,7 @@ from fastapi import HTTPException
 
 from app.config import AIWallConfig, ProviderConfig
 from app.providers.adapters import build_chat_completions_url
-from app.providers.router import extract_model_from_body, select_provider
+from app.providers.router import extract_model_from_body, select_provider, try_select_provider
 
 
 def test_select_provider_routes_openai_model() -> None:
@@ -50,6 +50,21 @@ def test_select_provider_routes_ollama_model() -> None:
 
     provider = select_provider(config, "llama3.2:1b")
     assert provider.name == "ollama"
+
+
+def test_try_select_provider_unknown_model_returns_none() -> None:
+    config = AIWallConfig(
+        providers=[
+            ProviderConfig(
+                name="openai",
+                type="openai-compatible",
+                base_url="https://api.openai.com/v1",
+                models=["gpt-*"],
+            )
+        ]
+    )
+
+    assert try_select_provider(config, "unknown-model") is None
 
 
 def test_select_provider_unknown_model() -> None:

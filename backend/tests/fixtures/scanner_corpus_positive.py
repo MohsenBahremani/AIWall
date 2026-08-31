@@ -49,7 +49,7 @@ def sample_stripe_restricted_key() -> str:
 
 
 def sample_google_api_key() -> str:
-    alphabet = string.ascii_letters + string.digits + "-_"
+    alphabet = string.ascii_letters + string.digits
     body = "".join(secrets.choice(alphabet) for _ in range(35))
     return "google AIza" + body
 

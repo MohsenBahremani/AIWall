@@ -4,31 +4,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}AIWall{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v=20260828c">
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
 </head>
 <body>
     <header class="topbar">
-        <div class="brand">AIWall</div>
-        <nav class="nav">
-            <a href="/">Dashboard</a>
-            <a href="/events">Event log</a>
-            {% if log_raw_prompts_enabled %}
-            <a href="/prompts">Prompt log</a>
-            {% endif %}
-            <a href="/usage">Model usage</a>
-            <a href="/policies">Policies</a>
-            <a href="/agents">Agents</a>
-            <a href="/settings">Settings</a>
-            <a href="/blocked">Blocked</a>
-            <a href="/reports/weekly">Weekly report</a>
-        </nav>
+        <div class="brand">AIWall{% block brand_suffix %}{% endblock %}</div>
+        {% include "_topnav.html" %}
     </header>
     <main class="content">
         {% block content %}{% endblock %}
     </main>
     <footer class="footer">
-        Self-hosted AI security gateway
+        {% block footer %}Self-hosted AI security gateway{% endblock %}
     </footer>
 </body>
 </html>

@@ -38,7 +38,7 @@ from app.presets import has_private_key_rule
 from app.profiles.limits import check_daily_limits
 from app.profiles.store import ProfileStore
 from app.providers.adapters import build_chat_completions_url, build_upstream_headers
-from app.providers.router import extract_model_from_body, select_provider
+from app.providers.router import extract_model_from_body, try_select_provider
 from app.proxy.tokens import (
     estimate_request_token_usage,
     extract_stream_token_usage,
@@ -361,26 +361,26 @@ class ChatCompletionProxy:
     async def forward(self, request: Request) -> Response | StreamingResponse | JSONResponse:
         body = await request.body()
         model = extract_model_from_body(body)
-        provider = select_provider(self._config, model)
-        upstream_url = build_chat_completions_url(provider)
+        provider = try_select_provider(self._config, model)
         identity = _identity_from_request(request)
         user_id = identity.user_id
-        incoming_headers = _filter_forward_headers(request.headers)
-        if _should_strip_client_auth(self._config, identity):
-            incoming_headers = strip_client_authorization(incoming_headers)
-        upstream_headers = build_upstream_headers(
-            provider,
-            incoming_headers,
-            prefer_provider_key=self._config.upstream_auth.prefer_provider_key,
-        )
         request_id = new_request_id()
         input_length = measure_input_length(body)
         started = time.perf_counter()
         category_result = classify_request_body(body)
         categories = category_result.categories
+        policy_provider_name = (
+            provider.name
+            if provider is not None
+            else (
+                self._config.providers[0].name
+                if self._config.providers
+                else "unrouted"
+            )
+        )
         policy_result = self._evaluate_policy(
             body,
-            provider.name,
+            policy_provider_name,
             model,
             input_length,
             user_role=identity.role,
@@ -394,7 +394,7 @@ class ChatCompletionProxy:
                 self._audit_writer,
                 self._config,
                 request_id=request_id,
-                provider_name=provider.name,
+                provider_name=policy_provider_name,
                 model=model,
                 decision="block",
                 reason=policy_result.reason,
@@ -412,6 +412,27 @@ class ChatCompletionProxy:
                 policy_result=policy_result,
             )
             return policy_blocked_response(policy_result)
+
+        if provider is None:
+            if not self._config.providers:
+                raise HTTPException(
+                    status_code=503,
+                    detail="No providers configured",
+                )
+            raise HTTPException(
+                status_code=404,
+                detail=f"No provider configured for model: {model}",
+            )
+
+        upstream_url = build_chat_completions_url(provider)
+        incoming_headers = _filter_forward_headers(request.headers)
+        if _should_strip_client_auth(self._config, identity):
+            incoming_headers = strip_client_authorization(incoming_headers)
+        upstream_headers = build_upstream_headers(
+            provider,
+            incoming_headers,
+            prefer_provider_key=self._config.upstream_auth.prefer_provider_key,
+        )
 
         if policy_result.action == "require_approval":
             fresh = self._policy_engine.reload()
