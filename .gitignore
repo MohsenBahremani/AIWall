@@ -214,7 +214,10 @@ tempCodeRunnerFile.py
 
 # PyPI configuration file
 .pypirc
-.c*
+
+# Cursor workspace config
+.cursor/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

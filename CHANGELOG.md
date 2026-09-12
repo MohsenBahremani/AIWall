@@ -10,11 +10,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 
 - Pro navigation dropdown in the Community top bar, shown when `aiwall-pro` is loaded.
 - `register_preset_dirs` plugin hook, invoked before `load_config` so plugin preset packs resolve.
+- Documentation ownership map (`docs/doc-ownership.md`) with version-alignment tests.
+- Local proxy overhead benchmark harness and results (`docs/benchmarks.md`).
 
 ### Changed
 
 - Policy evaluation now runs before provider routing, so secret blocks no longer depend on upstream model availability.
 - Tests honour `AIWALL_SKIP_APP_BOOT` to avoid importing the developer config during collection.
+
+### Fixed
+
+- Hardened approval endpoints, audit reason handling, and upstream auth for model listing.
 
 ## [0.1.0] - 2026-08-27
 
