@@ -10,10 +10,12 @@ AIWall sits between your apps and AI providers. You get visibility, policy enfor
 
 **Ready for day-to-day use:** OpenAI-compatible proxy, policies, secret scanning, family profiles, control panel, alerts, and agent tool guardrails (shell/file risk + approve/deny).
 
-**Still in progress:**
+The audit JSONL schema (`aiwall.audit.v1`) is frozen, and both companion repos ship `0.1.0` against it:
 
-- Detection packs (Wazuh, Sigma, Grafana) in [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections) — audit JSONL schema (`aiwall.audit.v1`) is frozen first
-- Red-team payloads and regression checks in [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam)
+- Detection packs (Wazuh, Sigma, Grafana/Loki) with playbooks and ATLAS coverage in [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections)
+- Red-team payloads, campaign runners, and a must-block regression suite in [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam)
+
+**Still in progress:** prompt-injection / jailbreak detections and rate-based model-extraction signals. Both are blocked on the core emitting dedicated audit reasons or aggregate metrics — see [blocked-detections.md](https://github.com/MohsenBahremani/AIWall-detections/blob/main/docs/blocked-detections.md).
 
 ## What AIWall does
 
