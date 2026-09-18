@@ -14,4 +14,9 @@ Single source of truth for cross-repo facts. When a claim appears elsewhere, lin
 | Package version | [`pyproject.toml`](../pyproject.toml) and [`backend/app/__init__.py`](../backend/app/__init__.py) |
 | Pro plugin version | [AIWall-pro `pyproject.toml`](https://github.com/MohsenBahremani/AIWall-pro/blob/main/pyproject.toml) and `plugin.info.version` |
 
-CI checks version alignment via `backend/tests/test_doc_drift.py`.
+CI checks via `backend/tests/test_doc_drift.py`:
+
+- package / changelog / audit-schema version alignment
+- relative markdown links in core README + docs
+- sibling README relative links when `AIWall-detections`, `AIWall-redteam`, or `AIWall-pro` sit next to core
+- detections roadmap Wazuh rule range matches `wazuh/rules/aiwall_rules.xml`
