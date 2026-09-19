@@ -60,6 +60,8 @@ Canonical list (exact values + dynamic patterns): [`backend/app/audit/reasons.py
 | `secret-detected` | A policy on `input.contains_secret` matched |
 | `private-key-detected` | A policy on `input.contains_private_key` matched |
 | `secret-redacted` | Secrets were masked and the request continued |
+| `injection-detected` | A policy on `input.contains_injection` matched (instruction override) |
+| `jailbreak-detected` | A policy on `input.contains_jailbreak` matched (persona / meta-prompt probe) |
 | `category-blocked` | A policy on `input.category` matched |
 | `cost-threshold` | A policy on `estimated_cost` matched (per-request ceiling) |
 | `cost-budget` | A plugin budget checker blocked or warned (rolling day/week/month spend) |

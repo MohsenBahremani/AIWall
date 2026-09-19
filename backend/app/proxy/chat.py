@@ -30,6 +30,7 @@ from app.audit.writer import AuditWriter
 from app.auth.gateway import GatewayIdentity, gateway_auth_enabled, strip_client_authorization
 from app.budgets import BudgetCheckContext, BudgetChecker, run_budget_checkers
 from app.classifiers.categories import CategoryResult, classify_request_body
+from app.classifiers.injection import classify_injection_request_body
 from app.config import AIWallConfig
 from app.policies.context import PolicyContext
 from app.policies.engine import PolicyEngine, PolicyResult
@@ -334,6 +335,7 @@ class ChatCompletionProxy:
         )
         if category_result is None:
             category_result = classify_request_body(body)
+        injection_result = classify_injection_request_body(body)
         projected_usage = estimate_request_token_usage(body)
         cost_estimate = self._cost_estimator.estimate(provider_name, model, projected_usage)
         rule_ids = tuple(match.rule_id for match in scan_result.matches)
@@ -343,6 +345,8 @@ class ChatCompletionProxy:
             input_length=input_length,
             contains_secret=scan_result.contains_secret,
             contains_private_key=has_private_key_rule(rule_ids),
+            contains_injection=injection_result.contains_injection,
+            contains_jailbreak=injection_result.contains_jailbreak,
             estimated_cost=cost_estimate.estimated_cost if cost_estimate else 0.0,
             user_role=user_role,
             user_id=user_id,

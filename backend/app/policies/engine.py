@@ -33,6 +33,10 @@ def _match_reason(when: str) -> str:
         return "secret-detected"
     if expression == "input.contains_private_key":
         return "private-key-detected"
+    if expression == "input.contains_injection":
+        return "injection-detected"
+    if expression == "input.contains_jailbreak":
+        return "jailbreak-detected"
     if "input.category" in expression:
         return "category-blocked"
     if "estimated_cost" in expression:

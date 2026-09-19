@@ -1,6 +1,7 @@
-# Developer guardrail preset (Phase 2.7)
+# Developer guardrail preset (Phase 2.7 + 6.15)
 #
-# Warn when prompts contain secrets; hard-block private keys.
+# Warn when prompts contain secrets; hard-block private keys and
+# prompt-injection / jailbreak probes.
 # Enable with:
 #   presets:
 #     - developer
@@ -13,5 +14,15 @@ policies:
 
   - name: block-private-keys
     when: input.contains_private_key
+    action: block
+    enabled: true
+
+  - name: block-prompt-injection
+    when: input.contains_injection
+    action: block
+    enabled: true
+
+  - name: block-jailbreak
+    when: input.contains_jailbreak
     action: block
     enabled: true

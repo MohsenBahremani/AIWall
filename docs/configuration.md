@@ -144,6 +144,8 @@ The control panel at `/policies` can toggle `enabled` without editing `aiwall.ya
 | `user.role == "child"` | Authenticated profile role equals `child` (also `!=`) |
 | `input.category == "explicit"` | Prompt classified into a content category |
 | `input.category in ["unsafe", "explicit"]` | Prompt matches any listed category |
+| `input.contains_injection` | Prompt matches instruction-override / role-hijack patterns |
+| `input.contains_jailbreak` | Prompt matches jailbreak persona or meta-prompt extraction probes |
 | `input.length > N` | Total message character length (comparison operators: `>`, `<`, `>=`, `<=`, `==`) |
 | `estimated_cost > N` | Pre-request cost estimate from tokens + `prices.yaml` |
 

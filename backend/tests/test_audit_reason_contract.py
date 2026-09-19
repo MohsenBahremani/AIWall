@@ -39,6 +39,8 @@ def test_match_reason_never_emits_raw_condition_text() -> None:
         "input.category == 'sexual'",
         "user.role == 'child'",
         "input.contains_private_key",
+        "input.contains_injection",
+        "input.contains_jailbreak",
     ]
     for when in cases:
         reason = _match_reason(when)
@@ -52,6 +54,8 @@ def test_match_reason_never_emits_raw_condition_text() -> None:
     [
         ("input.contains_secret", "secret-detected"),
         ("input.contains_private_key", "private-key-detected"),
+        ("input.contains_injection", "injection-detected"),
+        ("input.contains_jailbreak", "jailbreak-detected"),
         ("input.category == 'sexual'", "category-blocked"),
         ("estimated_cost > 1.00", "cost-threshold"),
         ("input.length > 5000", "length-threshold"),

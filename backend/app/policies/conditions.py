@@ -42,6 +42,12 @@ def _evaluate_atomic(expression: str, context: PolicyContext) -> bool:
     if expression == "input.contains_private_key":
         return context.contains_private_key
 
+    if expression == "input.contains_injection":
+        return context.contains_injection
+
+    if expression == "input.contains_jailbreak":
+        return context.contains_jailbreak
+
     role_match = _USER_ROLE.match(expression)
     if role_match:
         operator, expected = role_match.groups()
