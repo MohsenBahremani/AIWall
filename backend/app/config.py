@@ -146,6 +146,16 @@ class ScannerConfig(BaseModel):
     rules: dict[str, RuleScannerConfig] = Field(default_factory=dict)
 
 
+class RateLimitConfig(BaseModel):
+    """Rolling-window caps for model-extraction / high-volume query floods."""
+
+    enabled: bool = False
+    window_seconds: int = 300
+    max_requests: int | None = None
+    max_tokens: int | None = None
+    apply_without_profile: bool = True
+
+
 class AIWallConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
     providers: list[ProviderConfig] = Field(default_factory=list)
@@ -160,6 +170,7 @@ class AIWallConfig(BaseModel):
     agent_guardrails: AgentGuardrailsConfig = Field(default_factory=AgentGuardrailsConfig)
     cors: CorsConfig = Field(default_factory=CorsConfig)
     scanners: ScannerConfig = Field(default_factory=ScannerConfig)
+    rate_limits: RateLimitConfig = Field(default_factory=RateLimitConfig)
 
 
 def resolve_config_path(path: Path | str | None = None) -> Path:

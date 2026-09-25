@@ -22,6 +22,7 @@ EXACT_AUDIT_REASONS = frozenset(
         "length-threshold",
         "role-policy",
         "daily-limit",
+        "extraction-rate",
         "policy-matched",
         "policy_warn",
         "approval-denied",

@@ -126,9 +126,11 @@ def test_assert_valid_audit_reason_raises_on_violation() -> None:
 def test_budget_and_daily_limit_reasons() -> None:
     from app.budgets import BUDGET_REASON
     from app.profiles.limits import DAILY_LIMIT_REASON
+    from app.rates.window import EXTRACTION_RATE_REASON
 
     assert is_valid_audit_reason(BUDGET_REASON)
     assert is_valid_audit_reason(DAILY_LIMIT_REASON)
+    assert is_valid_audit_reason(EXTRACTION_RATE_REASON)
 
 
 def test_proxy_block_reasons_from_policy_result() -> None:

@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 
 - Cross-repo docs drift guard: relative-link checks and detections Wazuh rule-range alignment (`backend/tests/test_doc_drift.py`).
 - Prompt-injection / jailbreak keyword classifiers with policy conditions `input.contains_injection` / `input.contains_jailbreak` and audit reasons `injection-detected` / `jailbreak-detected`.
+- Closed audit reason `extraction-rate` and rolling-window usage checker (`app/rates`) for model-extraction / high-volume query floods (AML.T0024).
 - Pro navigation dropdown in the Community top bar, shown when `aiwall-pro` is loaded.
 - `register_preset_dirs` plugin hook, invoked before `load_config` so plugin preset packs resolve.
 - Documentation ownership map (`docs/doc-ownership.md`) with version-alignment tests.

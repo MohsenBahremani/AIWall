@@ -68,6 +68,7 @@ Canonical list (exact values + dynamic patterns): [`backend/app/audit/reasons.py
 | `length-threshold` | A policy on `input.length` matched |
 | `role-policy` | A policy scoped only by `user.role` matched |
 | `daily-limit` | A profile hit its configured daily request/token/cost cap |
+| `extraction-rate` | Rolling request or token volume in `rate_limits.window_seconds` exceeded a cap (AML.T0024) |
 | `policy-matched` | Fallback for a matched policy whose condition maps to none of the above |
 | `approval-denied` | An agent action was held and then denied (or timed out) |
 | `shell risk <score> (<band>)` | Agent shell guardrail warn/block; score and band vary |
