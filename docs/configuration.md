@@ -270,6 +270,28 @@ Profiles may set optional daily caps:
 
 The reset window is the **UTC calendar day** (midnight UTC). Over-limit requests return HTTP 403 with `error.reason` / `error.policy` set to `daily-limit`.
 
+### `rate_limits`
+
+Rolling-window caps for **model-extraction / high-volume query** floods (ATLAS AML.T0024). Distinct from daily profile limits: this window slides, and can apply without a profile.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `false` | Evaluate the window before forwarding |
+| `window_seconds` | integer | `300` | Rolling lookback (billable `allow` / `warn` / `redact` rows) |
+| `max_requests` | integer \| null | `null` | Block when request count in the window is already at/over this cap |
+| `max_tokens` | integer \| null | `null` | Block when tokens in the window (plus projected request) would exceed the cap |
+| `apply_without_profile` | boolean | `true` | When no `user_id`, count the whole gateway (typical unauthenticated lab) |
+
+Over-limit requests return HTTP 403 with `error.reason` / `error.policy` set to `extraction-rate`. SIEM matches that reason on the blocking audit line.
+
+```yaml
+rate_limits:
+  enabled: true
+  window_seconds: 300
+  max_requests: 40
+  max_tokens: 80000
+```
+
 ### `cors`
 
 | Field | Type | Default | Description |

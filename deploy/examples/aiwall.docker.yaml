@@ -62,6 +62,12 @@ scanners:
     min_value_length: 8
     pasted_file_min_lines: 5
 
+rate_limits:
+  enabled: true
+  window_seconds: 300
+  max_requests: 40
+  max_tokens: 80000
+
 # gateway_auth:
 #   enabled: true
 #   api_key_env: AIWALL_API_KEY

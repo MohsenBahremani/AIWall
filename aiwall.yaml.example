@@ -84,6 +84,15 @@ scanners:
   #     min_length: 24
   rules: {}
 
+# Optional: rolling-window cap for model-extraction / high-volume query floods.
+# Distinct from per-profile daily limits. Emits reason extraction-rate.
+# rate_limits:
+#   enabled: true
+#   window_seconds: 300
+#   max_requests: 40
+#   max_tokens: 80000
+#   apply_without_profile: true
+
 # Optional: require clients to present an AIWall-issued API key (off by default).
 # gateway_auth:
 #   enabled: true

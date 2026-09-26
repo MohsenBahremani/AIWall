@@ -38,6 +38,7 @@ from app.policies.responses import policy_blocked_response, privacy_safe_headers
 from app.presets import has_private_key_rule
 from app.profiles.limits import check_daily_limits
 from app.profiles.store import ProfileStore
+from app.rates.window import check_extraction_rate
 from app.providers.adapters import build_chat_completions_url, build_upstream_headers
 from app.providers.router import extract_model_from_body, try_select_provider
 from app.proxy.tokens import (
@@ -529,6 +530,36 @@ class ChatCompletionProxy:
                     policy_result=limit_check.result,
                 )
                 return policy_blocked_response(limit_check.result)
+
+        rate_check = check_extraction_rate(
+            audit_writer=self._audit_writer,
+            config=self._config.rate_limits,
+            user_id=user_id,
+            projected_tokens=estimate_request_token_usage(body).total_tokens,
+        )
+        if rate_check.exceeded and rate_check.result is not None:
+            latency_ms = (time.perf_counter() - started) * 1000.0
+            log_proxy_event(
+                self._audit_writer,
+                self._config,
+                request_id=request_id,
+                provider_name=provider.name,
+                model=model,
+                decision="block",
+                reason=rate_check.result.reason,
+                input_length=input_length,
+                output_length=0,
+                latency_ms=latency_ms,
+                body=body,
+                policy_id=rate_check.result.policy_id,
+                user_id=user_id,
+                categories=categories,
+            )
+            await self._emit_block_alerts(
+                request_id=request_id,
+                policy_result=rate_check.result,
+            )
+            return policy_blocked_response(rate_check.result)
 
         projected_usage = estimate_request_token_usage(body)
         cost_estimate = self._cost_estimator.estimate(provider.name, model, projected_usage)

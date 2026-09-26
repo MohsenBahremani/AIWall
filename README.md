@@ -15,7 +15,7 @@ The audit JSONL schema (`aiwall.audit.v1`) is frozen, and both companion repos s
 - Detection packs (Wazuh, Sigma, Grafana/Loki) with playbooks and ATLAS coverage in [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections)
 - Red-team payloads, campaign runners, and a must-block regression suite in [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam)
 
-**Still in progress:** rate-based model-extraction signals (AML.T0024) — blocked on aggregate metrics in core. Prompt-injection / jailbreak controls now emit `injection-detected` / `jailbreak-detected` — see [blocked-detections.md](https://github.com/MohsenBahremani/AIWall-detections/blob/main/docs/blocked-detections.md) for remaining gaps.
+Prompt-injection / jailbreak controls emit `injection-detected` / `jailbreak-detected`. High-volume / model-extraction floods emit `extraction-rate` when `rate_limits` is enabled. See [configuration.md](docs/configuration.md) and [blocked-detections.md](https://github.com/MohsenBahremani/AIWall-detections/blob/main/docs/blocked-detections.md).
 
 ## What AIWall does
 
