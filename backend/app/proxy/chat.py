@@ -38,7 +38,6 @@ from app.policies.responses import policy_blocked_response, privacy_safe_headers
 from app.presets import has_private_key_rule
 from app.profiles.limits import check_daily_limits
 from app.profiles.store import ProfileStore
-from app.rates.window import check_extraction_rate
 from app.providers.adapters import build_chat_completions_url, build_upstream_headers
 from app.providers.router import extract_model_from_body, try_select_provider
 from app.proxy.tokens import (
@@ -46,6 +45,7 @@ from app.proxy.tokens import (
     extract_stream_token_usage,
     extract_token_usage,
 )
+from app.rates.window import check_extraction_rate
 from app.scanners.secrets import ScanResult, redact_request_body, scan_request_body
 
 FORWARD_REQUEST_HEADERS = {
