@@ -16,6 +16,7 @@ class PolicyContext:
     contains_private_key: bool = False
     contains_injection: bool = False
     contains_jailbreak: bool = False
+    output_contains_secret: bool = False
     estimated_cost: float = 0.0
     user_role: str | None = None
     user_id: str | None = None

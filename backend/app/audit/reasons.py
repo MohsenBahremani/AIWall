@@ -14,6 +14,7 @@ EXACT_AUDIT_REASONS = frozenset(
         "secret-detected",
         "private-key-detected",
         "secret-redacted",
+        "output-secret-detected",
         "injection-detected",
         "jailbreak-detected",
         "category-blocked",

@@ -18,6 +18,23 @@ def test_evaluate_condition_contains_secret() -> None:
     assert evaluate_condition("input.contains_secret", context) is True
 
 
+def test_evaluate_condition_output_contains_secret() -> None:
+    context = PolicyContext(
+        body=b"{}",
+        model="gpt-4o-mini",
+        input_length=1,
+        output_contains_secret=True,
+    )
+    assert evaluate_condition("output.contains_secret", context) is True
+    assert (
+        evaluate_condition(
+            "output.contains_secret",
+            PolicyContext(body=b"{}", model="gpt-4o-mini", input_length=1),
+        )
+        is False
+    )
+
+
 def test_policy_engine_blocks_matching_policy(tmp_path) -> None:
     config_path = write_test_config(
         tmp_path,

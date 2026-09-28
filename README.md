@@ -15,12 +15,12 @@ The audit JSONL schema (`aiwall.audit.v1`) is frozen, and both companion repos s
 - Detection packs (Wazuh, Sigma, Grafana/Loki) with playbooks and ATLAS coverage in [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections)
 - Red-team payloads, campaign runners, and a must-block regression suite in [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam)
 
-Prompt-injection / jailbreak controls emit `injection-detected` / `jailbreak-detected`. High-volume / model-extraction floods emit `extraction-rate` when `rate_limits` is enabled. See [configuration.md](docs/configuration.md) and [blocked-detections.md](https://github.com/MohsenBahremani/AIWall-detections/blob/main/docs/blocked-detections.md).
+Prompt-injection / jailbreak controls emit `injection-detected` / `jailbreak-detected`. High-volume / model-extraction floods emit `extraction-rate` when `rate_limits` is enabled. Secrets in **model replies** emit `output-secret-detected` when `output.contains_secret` is configured. See [configuration.md](docs/configuration.md) and [blocked-detections.md](https://github.com/MohsenBahremani/AIWall-detections/blob/main/docs/blocked-detections.md).
 
 ## What AIWall does
 
 - Proxies AI API traffic — drop-in OpenAI-compatible endpoint for clients, scripts, and coding tools (Cursor, Claude Code, Continue.dev)
-- Scans for secrets — API keys, tokens, SSH keys, pasted `.env` content, before they hit a provider
+- Scans for secrets — API keys, tokens, SSH keys, pasted `.env` content, before they hit a provider **and** in model replies
 - Enforces policies — allow, warn, block, or redact; toggle from the GUI
 - Guards agent tools — scores shell commands, flags sensitive file access, holds risky actions for approve/deny
 - Serves a control panel — dashboard, event log, usage, cost, policies, agent approvals

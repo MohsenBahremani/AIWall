@@ -12,6 +12,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 - Prompt-injection / jailbreak keyword classifiers with policy conditions `input.contains_injection` / `input.contains_jailbreak` and audit reasons `injection-detected` / `jailbreak-detected`.
 - Closed audit reason `extraction-rate` and rolling-window usage checker (`app/rates`) for model-extraction / high-volume query floods (AML.T0024).
 - Proxy enforcement of `rate_limits` (request/token caps over a sliding window) before upstream forward.
+- Output DLP: policy condition `output.contains_secret` scans model replies (non-stream and buffered stream) and emits `output-secret-detected`.
+- Jailbreak classifier now matches safety-bypass framing such as “safety rules do not apply” (PI-02) without requiring a child category policy.
 - Pro navigation dropdown in the Community top bar, shown when `aiwall-pro` is loaded.
 - `register_preset_dirs` plugin hook, invoked before `load_config` so plugin preset packs resolve.
 - Documentation ownership map (`docs/doc-ownership.md`) with version-alignment tests.

@@ -37,6 +37,8 @@ def _match_reason(when: str) -> str:
         return "injection-detected"
     if expression == "input.contains_jailbreak":
         return "jailbreak-detected"
+    if "output.contains_secret" in expression:
+        return "output-secret-detected"
     if "input.category" in expression:
         return "category-blocked"
     if "estimated_cost" in expression:
@@ -114,6 +116,56 @@ class PolicyEngine:
             if not matched:
                 continue
 
+            if policy.action == "block":
+                block_match = PolicyResult(
+                    action="block",
+                    policy_id=policy.name,
+                    reason=_match_reason(policy.when),
+                )
+                break
+            if policy.action == "redact" and redact_match is None:
+                redact_match = PolicyResult(
+                    action="redact",
+                    policy_id=policy.name,
+                    reason=_match_reason(policy.when),
+                )
+            if policy.action == "warn" and warn_match is None:
+                warn_match = PolicyResult(
+                    action="warn",
+                    policy_id=policy.name,
+                    reason=_match_reason(policy.when),
+                )
+
+        if block_match is not None:
+            return block_match
+        if redact_match is not None:
+            return redact_match
+        if warn_match is not None:
+            return warn_match
+        return PolicyResult(action="allow", reason="policy_allow")
+
+    def evaluate_output(self, context: PolicyContext) -> PolicyResult:
+        """Evaluate only policies that mention ``output.contains_secret``.
+
+        Input-side conditions must not re-fire after the provider has already
+        seen the request; this is the post-upstream DLP pass.
+        """
+        config = self.reload()
+        block_match: PolicyResult | None = None
+        redact_match: PolicyResult | None = None
+        warn_match: PolicyResult | None = None
+
+        for policy in config.policies:
+            if not policy.enabled:
+                continue
+            if "output.contains_secret" not in policy.when:
+                continue
+            try:
+                matched = evaluate_condition(policy.when, context)
+            except ValueError:
+                continue
+            if not matched:
+                continue
             if policy.action == "block":
                 block_match = PolicyResult(
                     action="block",

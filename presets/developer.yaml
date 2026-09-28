@@ -12,6 +12,11 @@ policies:
     action: warn
     enabled: true
 
+  - name: block-output-secrets
+    when: output.contains_secret
+    action: block
+    enabled: true
+
   - name: block-private-keys
     when: input.contains_private_key
     action: block

@@ -45,6 +45,7 @@ def test_load_child_preset_policies() -> None:
     by_name = {policy.name: policy for policy in policies}
     assert "block-child-categories" in by_name
     assert "block-child-secrets" in by_name
+    assert "block-child-output-secrets" in by_name
     assert "block-child-private-keys" in by_name
     assert 'input.category in ["explicit", "unsafe", "violence"]' in by_name[
         "block-child-categories"

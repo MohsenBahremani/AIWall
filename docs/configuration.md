@@ -141,11 +141,12 @@ The control panel at `/policies` can toggle `enabled` without editing `aiwall.ya
 |---|---|
 | `input.contains_secret` | Secret scanner found a match in the request |
 | `input.contains_private_key` | Matched rule is an SSH/PKCS#8/encrypted private key |
+| `output.contains_secret` | Secret scanner found a match in the **model reply** (post-upstream DLP) |
 | `user.role == "child"` | Authenticated profile role equals `child` (also `!=`) |
 | `input.category == "explicit"` | Prompt classified into a content category |
 | `input.category in ["unsafe", "explicit"]` | Prompt matches any listed category |
 | `input.contains_injection` | Prompt matches instruction-override / role-hijack patterns |
-| `input.contains_jailbreak` | Prompt matches jailbreak persona or meta-prompt extraction probes |
+| `input.contains_jailbreak` | Prompt matches jailbreak persona, meta-prompt extraction, or safety-bypass framing |
 | `input.length > N` | Total message character length (comparison operators: `>`, `<`, `>=`, `<=`, `==`) |
 | `estimated_cost > N` | Pre-request cost estimate from tokens + `prices.yaml` |
 
@@ -494,6 +495,8 @@ The built-in scanner runs on request message content. Rules include:
 | `high-entropy` | Long high-entropy base64/hex-like strings |
 
 Wire into policy with `when: input.contains_secret` and `action: block` (or `redact` / `warn`).
+
+Scan **model replies** the same way with `when: output.contains_secret`. Default example configs include `block-output-secrets`. Streaming responses are buffered when an output-secret policy is enabled so a leak can be blocked instead of already flushed to the client.
 
 `action: redact` masks matched secrets in message content as `[REDACTED:<rule_id>]` before forwarding. The audit row uses `decision: redact` and stores `redaction_count`.
 

@@ -44,8 +44,9 @@ Upstream provider (OpenAI, Ollama, ...)
 8. **Daily limits** — for requests carrying a profile key, projected tokens and cost are checked against that profile's daily allowance; exceeding it blocks with reason `daily-limit`.
 9. **Budget checkers** — registered plugins (Pro cost budgets) see the projected tokens and cost and may block or warn with reason `cost-budget`. See [plugins.md](plugins.md).
 10. **Redaction** — on a `redact` verdict, matched secrets in the outbound body are masked before forwarding.
-11. **Forward** — non-streaming: full upstream response; streaming: SSE chunks passed through to the client.
-12. **Audit** — every request writes a row to SQLite (`decision`, `reason`, tokens, estimated cost, latency, redaction count, `user_id`). Agent tool actions are stored in `agent_actions` when present.
+11. **Forward** — non-streaming: full upstream response; streaming: SSE chunks passed through to the client (or buffered when an `output.contains_secret` policy is enabled).
+12. **Output DLP** — if a policy uses `output.contains_secret`, the completion is scanned; block returns HTTP 403 (`output-secret-detected`) and never sends the secret to the client.
+13. **Audit** — every request writes a row to SQLite (`decision`, `reason`, tokens, estimated cost, latency, redaction count, `user_id`). Agent tool actions are stored in `agent_actions` when present.
 
 Blocked requests never reach the upstream provider. Redacted requests reach the provider with secrets masked.
 

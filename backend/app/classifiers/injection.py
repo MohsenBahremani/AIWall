@@ -29,6 +29,12 @@ _JAILBREAK_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
     re.compile(r"(?i)\bhidden\s+tool\s+schemas?\b"),
     re.compile(r"(?i)\bverbatim\b.*\b(?:system\s+prompt|tool\s+schemas?)\b"),
+    # Safety-bypass framing (PI-02), including "pretend safety rules do not apply".
+    re.compile(r"(?i)\bsafety\s+rules?\s+do\s+not\s+apply\b"),
+    re.compile(
+        r"(?i)\b(?:disable|bypass|ignore)\s+(?:all\s+)?(?:safety|content)\s+"
+        r"(?:rules?|filters?|guidelines?)\b"
+    ),
 )
 
 

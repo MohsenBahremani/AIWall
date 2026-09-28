@@ -25,6 +25,8 @@ def test_load_developer_preset_policies() -> None:
     by_name = {policy.name: policy for policy in policies}
     assert by_name["warn-secrets"].action == "warn"
     assert by_name["warn-secrets"].when == "input.contains_secret"
+    assert by_name["block-output-secrets"].action == "block"
+    assert by_name["block-output-secrets"].when == "output.contains_secret"
     assert by_name["block-private-keys"].action == "block"
     assert by_name["block-private-keys"].when == "input.contains_private_key"
 

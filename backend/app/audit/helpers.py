@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from app.agents.extract import extract_agent_actions_from_body
 from app.audit.writer import AuditEvent, AuditWriter
 from app.config import AIWallConfig, ScannerConfig
-from app.scanners.secrets import redact_request_body
+from app.scanners.secrets import redact_request_body, redact_response_body
 
 
 def new_request_id() -> str:
@@ -113,7 +113,13 @@ def log_proxy_event(
         # Always mask secrets before persisting — never store raw credential values.
         raw_prompt = privacy_safe_prompt_text(body, config.scanners)
 
-    raw_response = response_text if config.logging.log_raw_prompts and response_text else None
+    raw_response = None
+    if config.logging.log_raw_prompts and response_text:
+        redacted = redact_response_body(
+            response_text.encode("utf-8"),
+            config.scanners,
+        )
+        raw_response = redacted.body.decode("utf-8", errors="replace")
     matched_rule_ids = ",".join(rule_ids) if rule_ids else None
     categories_value = ",".join(sorted(categories)) if categories else None
 

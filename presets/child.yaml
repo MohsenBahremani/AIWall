@@ -16,6 +16,11 @@ policies:
     action: block
     enabled: true
 
+  - name: block-child-output-secrets
+    when: user.role == "child" and output.contains_secret
+    action: block
+    enabled: true
+
   - name: block-child-private-keys
     when: user.role == "child" and input.contains_private_key
     action: block

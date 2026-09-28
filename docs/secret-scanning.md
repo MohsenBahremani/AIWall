@@ -1,13 +1,15 @@
 # Secret scanning
 
-AIWall scans outbound chat prompts before they reach a provider. Matches feed
-`input.contains_secret` / `input.contains_private_key` policies and appear in
-audit rows and the dashboard as privacy-safe `rule_id` values — never as raw
-secret strings.
+AIWall scans outbound chat prompts before they reach a provider, and can scan
+**model replies** after the provider responds. Matches feed
+`input.contains_secret` / `input.contains_private_key` / `output.contains_secret`
+policies and appear in audit rows and the dashboard as privacy-safe `rule_id`
+values — never as raw secret strings.
 
 ## How it works
 
-1. Message content is extracted from OpenAI-compatible chat payloads.
+1. Message content is extracted from OpenAI-compatible chat payloads (prompts)
+   or from completion JSON / SSE deltas (replies).
 2. Detectors run in this order:
    - Signature / regex rules
    - `.env` / pasted-config heuristics (`dotenv-secret`)

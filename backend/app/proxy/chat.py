@@ -46,7 +46,13 @@ from app.proxy.tokens import (
     extract_token_usage,
 )
 from app.rates.window import check_extraction_rate
-from app.scanners.secrets import ScanResult, redact_request_body, scan_request_body
+from app.scanners.secrets import (
+    ScanResult,
+    redact_request_body,
+    redact_response_body,
+    scan_request_body,
+    scan_response_body,
+)
 
 FORWARD_REQUEST_HEADERS = {
     "authorization",
@@ -107,6 +113,13 @@ def _with_rule_ids(result: PolicyResult, scan_result: ScanResult) -> PolicyResul
         policy_id=result.policy_id,
         reason=result.reason,
         rule_ids=rule_ids,
+    )
+
+
+def _has_output_secret_policy(config: AIWallConfig) -> bool:
+    return any(
+        policy.enabled and "output.contains_secret" in policy.when
+        for policy in config.policies
     )
 
 
@@ -362,6 +375,34 @@ class ChatCompletionProxy:
             fresh_config.agent_guardrails,
         )
         return merge_policy_results(result, agent_result)
+
+    def _evaluate_output_policy(
+        self,
+        response_body: bytes,
+        *,
+        model: str,
+        input_length: int,
+        user_role: str | None,
+        user_id: str | None,
+        categories: frozenset[str],
+    ) -> PolicyResult:
+        if not _has_output_secret_policy(self._policy_engine.reload()):
+            return PolicyResult(action="allow")
+        scan_result = scan_response_body(
+            response_body,
+            self._config.scanners,
+            extra_rules=self._secret_extra_rules,
+        )
+        context = PolicyContext(
+            body=response_body,
+            model=model,
+            input_length=input_length,
+            output_contains_secret=scan_result.contains_secret,
+            user_role=user_role,
+            user_id=user_id,
+            categories=categories,
+        )
+        return _with_rule_ids(self._policy_engine.evaluate_output(context), scan_result)
 
     async def forward(self, request: Request) -> Response | StreamingResponse | JSONResponse:
         body = await request.body()
@@ -645,6 +686,7 @@ class ChatCompletionProxy:
                 redaction_count=redaction_count,
                 extra_headers=response_headers,
                 user_id=user_id,
+                user_role=identity.role,
                 categories=categories,
             )
 
@@ -688,6 +730,70 @@ class ChatCompletionProxy:
         latency_ms = (time.perf_counter() - started) * 1000.0
         output_length = len(upstream_response.content)
         upstream_ok = upstream_response.status_code < 400
+        response_content = upstream_response.content
+        if upstream_ok:
+            output_result = self._evaluate_output_policy(
+                upstream_response.content,
+                model=model,
+                input_length=input_length,
+                user_role=identity.role,
+                user_id=user_id,
+                categories=categories,
+            )
+            if output_result.action == "block":
+                log_proxy_event(
+                    self._audit_writer,
+                    self._config,
+                    request_id=request_id,
+                    provider_name=provider.name,
+                    model=model,
+                    decision="block",
+                    reason=output_result.reason,
+                    input_length=input_length,
+                    output_length=output_length,
+                    latency_ms=latency_ms,
+                    body=forward_body,
+                    policy_id=output_result.policy_id,
+                    rule_ids=output_result.rule_ids,
+                    user_id=user_id,
+                    categories=categories,
+                )
+                await self._emit_block_alerts(
+                    request_id=request_id,
+                    policy_result=output_result,
+                )
+                return policy_blocked_response(output_result)
+            if output_result.action == "redact":
+                redacted_output = redact_response_body(
+                    upstream_response.content,
+                    self._config.scanners,
+                    extra_rules=self._secret_extra_rules,
+                )
+                response_content = redacted_output.body
+                redaction_count += redacted_output.redaction_count
+                policy_result = output_result
+                if redacted_output.rule_ids and not policy_result.rule_ids:
+                    policy_result = PolicyResult(
+                        action=output_result.action,
+                        policy_id=output_result.policy_id,
+                        reason=output_result.reason,
+                        rule_ids=redacted_output.rule_ids,
+                    )
+                response_headers = {
+                    **(response_headers or {}),
+                    **privacy_safe_headers(policy_result),
+                }
+            elif output_result.action == "warn" and policy_result.action == "allow":
+                policy_result = output_result
+                response_headers = {
+                    **(response_headers or {}),
+                    **privacy_safe_headers(policy_result),
+                }
+                await self._emit_warn_alerts(
+                    request_id=request_id,
+                    policy_result=policy_result,
+                )
+
         decision = _audit_decision(policy_result, upstream_ok=upstream_ok)
         reason = _audit_reason(
             policy_result,
@@ -712,7 +818,9 @@ class ChatCompletionProxy:
             output_length=output_length,
             latency_ms=latency_ms,
             body=forward_body,
-            response_text=upstream_response.text if upstream_ok else None,
+            response_text=(
+                response_content.decode("utf-8", errors="replace") if upstream_ok else None
+            ),
             policy_id=_policy_id_for_audit(policy_result),
             prompt_tokens=token_usage.prompt_tokens if token_usage else None,
             completion_tokens=token_usage.completion_tokens if token_usage else None,
@@ -734,7 +842,7 @@ class ChatCompletionProxy:
             )
 
         return Response(
-            content=upstream_response.content,
+            content=response_content,
             status_code=upstream_response.status_code,
             media_type=upstream_response.headers.get("content-type", "application/json"),
             headers=response_headers or None,
@@ -755,6 +863,7 @@ class ChatCompletionProxy:
         redaction_count: int = 0,
         extra_headers: dict[str, str] | None = None,
         user_id: str | None = None,
+        user_role: str | None = None,
         categories: frozenset[str] = frozenset(),
     ) -> StreamingResponse | Response:
         upstream_request = self._http_client.build_request(
@@ -832,6 +941,112 @@ class ChatCompletionProxy:
                 status_code=upstream_response.status_code,
                 media_type=upstream_response.headers.get("content-type", "application/json"),
                 headers=extra_headers or None,
+            )
+
+        if _has_output_secret_policy(self._policy_engine.reload()):
+            chunks: list[bytes] = []
+            try:
+                async for chunk in upstream_response.aiter_bytes():
+                    chunks.append(chunk)
+            finally:
+                await upstream_response.aclose()
+            output_bytes = b"".join(chunks)
+            latency_ms = (time.perf_counter() - started) * 1000.0
+            output_result = self._evaluate_output_policy(
+                output_bytes,
+                model=model,
+                input_length=input_length,
+                user_role=user_role,
+                user_id=user_id,
+                categories=categories,
+            )
+            replay_body = output_bytes
+            stream_policy = policy_result
+            stream_redaction = redaction_count
+            stream_headers = extra_headers or {}
+            if output_result.action == "block":
+                log_proxy_event(
+                    self._audit_writer,
+                    self._config,
+                    request_id=request_id,
+                    provider_name=provider_name,
+                    model=model,
+                    decision="block",
+                    reason=output_result.reason,
+                    input_length=input_length,
+                    output_length=len(output_bytes),
+                    latency_ms=latency_ms,
+                    body=body,
+                    policy_id=output_result.policy_id,
+                    rule_ids=output_result.rule_ids,
+                    user_id=user_id,
+                    categories=categories,
+                )
+                await self._emit_block_alerts(
+                    request_id=request_id,
+                    policy_result=output_result,
+                )
+                return policy_blocked_response(output_result)
+            if output_result.action == "redact":
+                redacted_output = redact_response_body(
+                    output_bytes,
+                    self._config.scanners,
+                    extra_rules=self._secret_extra_rules,
+                )
+                replay_body = redacted_output.body
+                stream_redaction += redacted_output.redaction_count
+                stream_policy = output_result
+                if redacted_output.rule_ids and not stream_policy.rule_ids:
+                    stream_policy = PolicyResult(
+                        action=output_result.action,
+                        policy_id=output_result.policy_id,
+                        reason=output_result.reason,
+                        rule_ids=redacted_output.rule_ids,
+                    )
+                stream_headers = {**stream_headers, **privacy_safe_headers(stream_policy)}
+            elif output_result.action == "warn" and policy_result.action == "allow":
+                stream_policy = output_result
+                stream_headers = {**stream_headers, **privacy_safe_headers(stream_policy)}
+                await self._emit_warn_alerts(
+                    request_id=request_id,
+                    policy_result=stream_policy,
+                )
+            token_usage = extract_stream_token_usage(
+                body, output_bytes.decode("utf-8", errors="replace")
+            )
+            cost_estimate = self._cost_estimator.estimate(provider_name, model, token_usage)
+            log_proxy_event(
+                self._audit_writer,
+                self._config,
+                request_id=request_id,
+                provider_name=provider_name,
+                model=model,
+                decision=_audit_decision(stream_policy),
+                reason=_audit_reason(stream_policy),
+                input_length=input_length,
+                output_length=len(output_bytes),
+                latency_ms=latency_ms,
+                body=body,
+                response_text=replay_body.decode("utf-8", errors="replace"),
+                policy_id=_policy_id_for_audit(stream_policy),
+                prompt_tokens=token_usage.prompt_tokens,
+                completion_tokens=token_usage.completion_tokens,
+                total_tokens=token_usage.total_tokens,
+                estimated_cost=cost_estimate.estimated_cost if cost_estimate else None,
+                redaction_count=stream_redaction,
+                rule_ids=stream_policy.rule_ids,
+                user_id=user_id,
+                categories=categories,
+            )
+
+            async def replay_body_iter() -> AsyncIterator[bytes]:
+                yield replay_body
+
+            return StreamingResponse(
+                replay_body_iter(),
+                status_code=upstream_response.status_code,
+                media_type=upstream_response.headers.get("content-type", "text/event-stream"),
+                headers=stream_headers or None,
             )
 
         output_chunks: list[bytes] = []

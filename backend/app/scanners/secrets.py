@@ -453,3 +453,227 @@ def redact_request_body(
         redaction_count=total_count,
         rule_ids=tuple(all_rule_ids),
     )
+
+
+def _iter_sse_payloads(sse_text: str):
+    for line in sse_text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("data:"):
+            continue
+        data = stripped[len("data:") :].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            yield json.loads(data)
+        except json.JSONDecodeError:
+            continue
+
+
+def _content_strings(content: object) -> list[str]:
+    if isinstance(content, str):
+        return [content]
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, dict) and isinstance(part.get("text"), str):
+                parts.append(part["text"])
+        return parts
+    return []
+
+
+def _choice_content_strings(choice: dict) -> list[str]:
+    parts: list[str] = []
+    message = choice.get("message")
+    if isinstance(message, dict):
+        parts.extend(_content_strings(message.get("content")))
+    delta = choice.get("delta")
+    if isinstance(delta, dict):
+        parts.extend(_content_strings(delta.get("content")))
+    text = choice.get("text")
+    if isinstance(text, str):
+        parts.append(text)
+    return parts
+
+
+def extract_completion_text(body: bytes) -> str:
+    """Pull assistant text from a chat-completion JSON body or SSE stream."""
+    if not body:
+        return ""
+    text = body.decode("utf-8", errors="replace")
+    if text.lstrip().startswith("data:"):
+        parts: list[str] = []
+        for payload in _iter_sse_payloads(text):
+            if not isinstance(payload, dict):
+                continue
+            choices = payload.get("choices")
+            if not isinstance(choices, list):
+                continue
+            for choice in choices:
+                if isinstance(choice, dict):
+                    parts.extend(_choice_content_strings(choice))
+        return "".join(parts)
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return text
+    if not isinstance(payload, dict):
+        return text
+    choices = payload.get("choices")
+    if not isinstance(choices, list):
+        return text
+    parts: list[str] = []
+    for choice in choices:
+        if isinstance(choice, dict):
+            parts.extend(_choice_content_strings(choice))
+    return "\n".join(parts)
+
+
+def scan_response_body(
+    body: bytes,
+    scanner_config: ScannerConfig | None = None,
+    *,
+    extra_rules: tuple[SecretRuleDef, ...] | list[SecretRuleDef] | None = None,
+) -> ScanResult:
+    return SecretScanner(scanner_config, extra_rules=extra_rules).scan(
+        extract_completion_text(body)
+    )
+
+
+def _redact_content_value(content: object, scanner: SecretScanner) -> tuple[object, int, list[str]]:
+    if isinstance(content, str):
+        result = scanner.redact(content)
+        return result.text, result.redaction_count, list(result.rule_ids)
+    if isinstance(content, list):
+        total = 0
+        rule_ids: list[str] = []
+        changed = False
+        new_parts: list[object] = []
+        for part in content:
+            if isinstance(part, dict) and isinstance(part.get("text"), str):
+                result = scanner.redact(part["text"])
+                if result.redaction_count:
+                    part = dict(part)
+                    part["text"] = result.text
+                    total += result.redaction_count
+                    rule_ids.extend(result.rule_ids)
+                    changed = True
+            new_parts.append(part)
+        return (new_parts if changed else content), total, rule_ids
+    return content, 0, []
+
+
+def _redact_choice(choice: dict, scanner: SecretScanner) -> tuple[int, list[str]]:
+    total = 0
+    rule_ids: list[str] = []
+    message = choice.get("message")
+    if isinstance(message, dict) and "content" in message:
+        new_content, count, ids = _redact_content_value(message.get("content"), scanner)
+        if count:
+            message["content"] = new_content
+            total += count
+            rule_ids.extend(ids)
+    delta = choice.get("delta")
+    if isinstance(delta, dict) and "content" in delta:
+        new_content, count, ids = _redact_content_value(delta.get("content"), scanner)
+        if count:
+            delta["content"] = new_content
+            total += count
+            rule_ids.extend(ids)
+    text = choice.get("text")
+    if isinstance(text, str):
+        result = scanner.redact(text)
+        if result.redaction_count:
+            choice["text"] = result.text
+            total += result.redaction_count
+            rule_ids.extend(result.rule_ids)
+    return total, rule_ids
+
+
+def redact_response_body(
+    body: bytes,
+    scanner_config: ScannerConfig | None = None,
+    *,
+    extra_rules: tuple[SecretRuleDef, ...] | list[SecretRuleDef] | None = None,
+) -> BodyRedactionResult:
+    scanner = SecretScanner(scanner_config, extra_rules=extra_rules)
+    if not body:
+        return BodyRedactionResult(body=body, redaction_count=0)
+
+    text = body.decode("utf-8", errors="replace")
+    if text.lstrip().startswith("data:"):
+        total_count = 0
+        all_rule_ids: list[str] = []
+        out_lines: list[str] = []
+        for line in text.splitlines(keepends=True):
+            stripped = line.strip()
+            if not stripped.startswith("data:"):
+                out_lines.append(line)
+                continue
+            prefix, _, rest = line.partition("data:")
+            payload_text = rest.strip()
+            newline = ""
+            if line.endswith("\r\n"):
+                newline = "\r\n"
+                payload_text = rest.strip("\r\n ").strip()
+            elif line.endswith("\n"):
+                newline = "\n"
+                payload_text = rest.strip("\n ").strip()
+            if not payload_text or payload_text == "[DONE]":
+                out_lines.append(line)
+                continue
+            try:
+                payload = json.loads(payload_text)
+            except json.JSONDecodeError:
+                out_lines.append(line)
+                continue
+            if isinstance(payload, dict):
+                choices = payload.get("choices")
+                if isinstance(choices, list):
+                    for choice in choices:
+                        if isinstance(choice, dict):
+                            count, ids = _redact_choice(choice, scanner)
+                            total_count += count
+                            all_rule_ids.extend(ids)
+            encoded = json.dumps(payload, ensure_ascii=False)
+            out_lines.append(f"{prefix}data: {encoded}{newline}")
+        if not total_count:
+            return BodyRedactionResult(body=body, redaction_count=0)
+        return BodyRedactionResult(
+            body="".join(out_lines).encode("utf-8"),
+            redaction_count=total_count,
+            rule_ids=tuple(all_rule_ids),
+        )
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        result = scanner.redact(text)
+        return BodyRedactionResult(
+            body=result.text.encode("utf-8"),
+            redaction_count=result.redaction_count,
+            rule_ids=result.rule_ids,
+        )
+
+    if not isinstance(payload, dict):
+        return BodyRedactionResult(body=body, redaction_count=0)
+
+    choices = payload.get("choices")
+    if not isinstance(choices, list):
+        return BodyRedactionResult(body=body, redaction_count=0)
+
+    total_count = 0
+    all_rule_ids: list[str] = []
+    for choice in choices:
+        if isinstance(choice, dict):
+            count, ids = _redact_choice(choice, scanner)
+            total_count += count
+            all_rule_ids.extend(ids)
+
+    if not total_count:
+        return BodyRedactionResult(body=body, redaction_count=0)
+    return BodyRedactionResult(
+        body=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        redaction_count=total_count,
+        rule_ids=tuple(all_rule_ids),
+    )
