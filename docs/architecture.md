@@ -13,7 +13,7 @@ Client (curl, Cursor, Open WebUI, script)
 AIWall (FastAPI)
     |
     +-- Policy Engine      allow / warn / block / redact
-    +-- Secret Scanner     regex on request body
+    +-- Secret Scanner     regex on prompts and model replies
     +-- Agent Guardrails   shell risk, sensitive files, approvals
     +-- Cost Estimator     prices.yaml + token usage
     +-- Provider Router    model -> provider
@@ -32,7 +32,7 @@ Upstream provider (OpenAI, Ollama, ...)
 4. **Provider selection** — the first configured provider whose `models` patterns match the requested model is chosen (`fnmatch` globs such as `gpt-*`, `llama*`).
 5. **Category classification** — keyword classifiers derive `input.category` and `input.categories` for family policies.
 6. **Policy evaluation** — one bundled step (`ChatProxy._evaluate_policy`) that runs in this order:
-   1. **Secret scan** — regex and entropy rules run on message content; results feed `input.contains_secret` and `input.contains_private_key`.
+   1. **Secret scan** — regex and entropy rules run on message content; results feed `input.contains_secret` and `input.contains_private_key`. Injection/jailbreak classifiers run in the same step and feed `input.contains_injection` / `input.contains_jailbreak`.
    2. **Cost estimate (pre-forward)** — prompt tokens and `max_tokens` hints estimate cost for `estimated_cost` conditions.
    3. **Policy engine** — policies from `aiwall.yaml` are evaluated in order against the assembled context:
       - `block` on first match stops the request (HTTP 403).

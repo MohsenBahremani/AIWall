@@ -21,6 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 
 ### Changed
 
+- `aiwall.yaml.example` and the configuration guide now include output-secret, injection, and jailbreak block policies, matching the Docker examples.
 - Policy evaluation now runs before provider routing, so secret blocks no longer depend on upstream model availability.
 - Tests honour `AIWALL_SKIP_APP_BOOT` to avoid importing the developer config during collection.
 

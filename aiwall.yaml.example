@@ -50,6 +50,18 @@ policies:
   #   when: input.contains_secret
   #   action: redact
 
+  - name: block-output-secrets
+    when: output.contains_secret
+    action: block
+
+  - name: block-prompt-injection
+    when: input.contains_injection
+    action: block
+
+  - name: block-jailbreak
+    when: input.contains_jailbreak
+    action: block
+
   - name: warn-large-cost
     when: estimated_cost > 1.00
     action: warn
