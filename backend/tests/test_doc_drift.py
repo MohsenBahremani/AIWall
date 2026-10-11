@@ -81,7 +81,7 @@ def test_detections_compatibility_matches_schema() -> None:
         (DETECTIONS / "validation" / "compatibility.json").read_text(encoding="utf-8")
     )
     assert payload["audit_schema"] == "aiwall.audit.v1"
-    assert payload["core_min_version"] == "0.1.0"
+    assert payload["core_min_version"] == "0.2.0"
 
 
 def test_detections_roadmap_rule_range_matches_wazuh() -> None:

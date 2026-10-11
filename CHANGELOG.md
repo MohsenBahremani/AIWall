@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
 ### Added
 
 - Cross-repo docs drift guard: relative-link checks and detections Wazuh rule-range alignment (`backend/tests/test_doc_drift.py`).
@@ -28,6 +30,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 ### Fixed
 
 - Hardened approval endpoints, audit reason handling, and upstream auth for model listing.
+
+### Compatibility
+
+- Audit export schema: `aiwall.audit.v1` (unchanged from 0.1.0).
+- Detection packs targeting this release: AIWall-detections `0.2.0`.
 
 ## [0.1.0] - 2026-08-27
 
