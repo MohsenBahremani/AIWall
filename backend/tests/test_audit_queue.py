@@ -30,6 +30,54 @@ def _event(request_id: str) -> AuditEvent:
     )
 
 
+def test_log_proxy_event_copies_org(tmp_path: Path) -> None:
+    from app.audit.helpers import log_proxy_event
+    from app.config import AIWallConfig, LoggingConfig
+
+    engine = create_engine(f"sqlite:///{(tmp_path / 'label.db').as_posix()}")
+    init_db(engine)
+    writer = AuditWriter(engine)
+    config = AIWallConfig(logging=LoggingConfig(org="homelab"))
+    log_proxy_event(
+        writer,
+        config,
+        request_id="proxy-org",
+        provider_name="openai",
+        model="gpt-4o-mini",
+        decision="allow",
+        reason="proxied",
+        input_length=4,
+        output_length=2,
+        latency_ms=1.0,
+    )
+    assert writer.list_recent(limit=1)[0].org == "homelab"
+
+
+def test_queued_record_stores_org(tmp_path: Path) -> None:
+    engine = create_engine(
+        f"sqlite:///{(tmp_path / 'org.db').as_posix()}",
+        connect_args={"check_same_thread": False},
+    )
+    init_db(engine)
+    writer = AuditWriter(engine, queue_writes=True)
+    writer.record(
+        AuditEvent(
+            request_id="org-1",
+            provider="openai",
+            model="gpt-4o-mini",
+            decision="allow",
+            reason="proxied",
+            input_length=4,
+            output_length=2,
+            latency_ms=1.0,
+            org="homelab",
+        )
+    )
+    rows = writer.list_recent(limit=1)
+    writer.close()
+    assert rows[0].org == "homelab"
+
+
 def test_queued_record_is_visible_on_read(tmp_path: Path) -> None:
     engine = create_engine(
         f"sqlite:///{(tmp_path / 'queue.db').as_posix()}",

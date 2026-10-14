@@ -70,6 +70,7 @@ logging:
   store: sqlite:///data/aiwall.db
   log_raw_prompts: false
   retention_days: 90
+  # org: homelab   # optional label on each audit line; omit to leave the field off the export
 
 pricing:
   file: prices.yaml

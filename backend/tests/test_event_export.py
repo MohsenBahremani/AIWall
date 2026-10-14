@@ -40,6 +40,7 @@ def _event(
     estimated_cost: float | None = 0.01,
     total_tokens: int | None = 10,
     timestamp: datetime | None = None,
+    org: str | None = None,
 ) -> AuditEvent:
     return AuditEvent(
         request_id=request_id,
@@ -50,6 +51,7 @@ def _event(
         input_length=10,
         output_length=5,
         latency_ms=1.0,
+        org=org,
         estimated_cost=estimated_cost,
         total_tokens=total_tokens,
         timestamp=timestamp or datetime.now(UTC),
@@ -161,8 +163,20 @@ def test_export_to_jsonl_is_ndjson_audit_v1(tmp_path: Path) -> None:
     assert blocked["matched_rule_ids"] == ["aws-access-key", "github-token"]
     assert blocked["categories"] == ["secret"]
     assert "raw_prompt" not in blocked
+    assert "org" not in blocked
     allowed = next(event for event in events if event["request_id"] == "ok-1")
     assert allowed["matched_rule_ids"] == []
+
+
+def test_export_jsonl_includes_org_when_set(tmp_path: Path) -> None:
+    writer = _writer(tmp_path)
+    now = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
+    writer.write(
+        _event(request_id="labeled", decision="allow", timestamp=now, org="homelab")
+    )
+    report = build_event_export(writer, ExportFilters(window_hours=24), now=now)
+    event = json.loads(export_to_jsonl(report).splitlines()[0])
+    assert event["org"] == "homelab"
 
 
 @pytest.mark.asyncio

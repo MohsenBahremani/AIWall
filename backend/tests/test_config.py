@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 from pathlib import Path
 
-from app.config import load_config
+import pytest
+from pydantic import ValidationError
+
+from app.config import LoggingConfig, load_config
 
 
 def test_load_config_from_yaml(example_config: Path) -> None:
@@ -15,6 +18,15 @@ def test_load_config_from_yaml(example_config: Path) -> None:
     assert config.providers[1].name == "ollama"
     assert len(config.policies) == 1
     assert config.logging.log_raw_prompts is False
+    assert config.logging.org is None
+
+
+def test_logging_org_is_optional_label() -> None:
+    assert LoggingConfig(org="  homelab ").org == "homelab"
+    assert LoggingConfig(org="").org is None
+    assert LoggingConfig(org=None).org is None
+    with pytest.raises(ValidationError):
+        LoggingConfig(org="home lab")
 
 
 def test_load_config_defaults_when_missing(tmp_path: Path) -> None:

@@ -36,6 +36,7 @@ class AuditEvent:
     output_length: int
     latency_ms: float
     user_id: str | None = None
+    org: str | None = None
     app_id: str | None = None
     estimated_cost: float | None = None
     prompt_tokens: int | None = None
@@ -303,8 +304,8 @@ class AuditWriter:
             "timestamp, request_id, user_id, app_id, provider, model, decision, reason, "
             "input_length, output_length, estimated_cost, prompt_tokens, completion_tokens, "
             "total_tokens, policy_id, matched_rule_ids, categories, redaction_count, "
-            "latency_ms, raw_prompt, raw_response"
-            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            "latency_ms, raw_prompt, raw_response, org"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         )
         rows = [self._event_params(event) for event, _actions in batch]
         connection = self._engine.raw_connection()
@@ -343,6 +344,7 @@ class AuditWriter:
             event.latency_ms,
             event.raw_prompt,
             event.raw_response,
+            event.org,
         )
 
     def _write_batch_orm(
@@ -376,6 +378,7 @@ class AuditWriter:
             timestamp=event.timestamp or datetime.now(UTC),
             request_id=event.request_id,
             user_id=event.user_id,
+            org=event.org,
             app_id=event.app_id,
             provider=event.provider,
             model=event.model,

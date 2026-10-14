@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 DEFAULT_CONFIG_PATH = Path("aiwall.yaml")
 CONFIG_ENV_VAR = "AIWALL_CONFIG"
@@ -39,6 +39,21 @@ class LoggingConfig(BaseModel):
     store: str = "sqlite:///data/aiwall.db"
     log_raw_prompts: bool = False
     retention_days: int = 90
+    org: str | None = None
+
+    @field_validator("org", mode="before")
+    @classmethod
+    def _normalize_org(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        if len(text) > 64 or any(ch.isspace() or ch in {'"', "'", "\\"} for ch in text):
+            raise ValueError(
+                "logging.org must be 1-64 characters without spaces, quotes, or backslashes"
+            )
+        return text
 
 
 class PricingConfig(BaseModel):

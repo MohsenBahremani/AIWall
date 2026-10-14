@@ -127,6 +127,7 @@ def log_proxy_event(
         AuditEvent(
             request_id=request_id,
             user_id=user_id,
+            org=config.logging.org,
             provider=provider_name,
             model=model,
             decision=decision,

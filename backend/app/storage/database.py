@@ -79,6 +79,7 @@ def _migrate_audit_schema(engine: Engine) -> None:
         "redaction_count": "INTEGER DEFAULT 0",
         "matched_rule_ids": "TEXT",
         "categories": "TEXT",
+        "org": "TEXT",
     }
     with engine.connect() as conn:
         existing = {row[1] for row in conn.execute(text("PRAGMA table_info(audit_events)"))}

@@ -20,13 +20,21 @@ def _split_csv_field(value: str | None) -> list[str]:
     return [part.strip() for part in value.split(",") if part.strip()]
 
 
+def _optional_org(value: object) -> str | None:
+    if isinstance(value, str):
+        text = value.strip()
+        return text or None
+    return None
+
+
 def row_to_audit_v1(row: AuditEventRow) -> dict[str, Any]:
     """Map an audit row to the frozen ``aiwall.audit.v1`` event object.
 
     Omits ``raw_prompt`` / ``raw_response``. Rule ids and categories are lists.
+    ``org`` is included only when the gateway label is set.
     """
     base = row_to_export_dict(row)
-    return {
+    payload = {
         "schema": AUDIT_SCHEMA_ID,
         "id": base["id"],
         "timestamp": base["timestamp"],
@@ -48,6 +56,10 @@ def row_to_audit_v1(row: AuditEventRow) -> dict[str, Any]:
         "redaction_count": base["redaction_count"],
         "latency_ms": base["latency_ms"],
     }
+    org = _optional_org(base.get("org"))
+    if org is not None:
+        payload["org"] = org
+    return payload
 
 
 def event_dict_to_audit_v1(event: dict[str, Any]) -> dict[str, Any]:
@@ -68,7 +80,7 @@ def event_dict_to_audit_v1(event: dict[str, Any]) -> dict[str, Any]:
     else:
         categories = list(categories)
 
-    return {
+    payload = {
         "schema": AUDIT_SCHEMA_ID,
         "id": event.get("id"),
         "timestamp": event.get("timestamp"),
@@ -90,6 +102,10 @@ def event_dict_to_audit_v1(event: dict[str, Any]) -> dict[str, Any]:
         "redaction_count": event.get("redaction_count"),
         "latency_ms": event.get("latency_ms"),
     }
+    org = _optional_org(event.get("org"))
+    if org is not None:
+        payload["org"] = org
+    return payload
 
 
 def export_to_jsonl(report: EventExport) -> str:

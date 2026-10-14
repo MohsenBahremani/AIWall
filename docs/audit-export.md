@@ -32,6 +32,7 @@ use **`.jsonl`** for log shipping and detection packs.
 | `timestamp` | string | ISO-8601 UTC |
 | `request_id` | string | Per-request correlation id |
 | `user_id` | string \| null | Profile id when gateway auth / profile keys are used |
+| `org` | string, omitted if unset | Gateway label from `logging.org`. A label, not a tenant id |
 | `provider` | string | Selected upstream provider name |
 | `model` | string | Requested model |
 | `decision` | string | `allow`, `warn`, `block`, `redact`, `error`, … |
@@ -86,6 +87,7 @@ The two cost reasons are distinct on purpose: `cost-threshold` is a single expen
 
 ## Compatibility
 
-- Additive fields may appear in a future `aiwall.audit.v2` (new schema id).
+- `org` is optional on `aiwall.audit.v1`. It is omitted when `logging.org` is unset, so existing lines stay valid.
+- Further additive fields may appear in a future `aiwall.audit.v2` (new schema id).
 - Consumers should ignore unknown fields.
 - Detection content: [AIWall-detections `docs/data-sources.md`](https://github.com/MohsenBahremani/AIWall-detections/blob/main/docs/data-sources.md).

@@ -198,6 +198,7 @@ Cost-based policies use a pre-forward estimate (prompt tokens + `max_tokens` / `
 | `store` | string | `sqlite:///data/aiwall.db` | SQLite database URL, or `none` to skip the audit file (lab only; profiles and approvals stay in memory) |
 | `log_raw_prompts` | boolean | `false` | Store prompt/response text in audit rows (opt-in). Detected secrets are always masked as `[REDACTED:<rule_id>]` before storage. When `true`, the `/prompts` viewer is available and shows a privacy warning banner. Can also be toggled from the Settings page (`settings-overrides.yaml`). |
 | `retention_days` | integer | `90` | Delete audit events older than this many days (purged on startup and when retention is saved in Settings). |
+| `org` | string | unset | Optional label copied onto each audit line (`"org":"homelab"`). Omitted from export when unset. Not a tenant or isolation boundary. 1–64 characters, no spaces or quotes. |
 
 ### `pricing`
 

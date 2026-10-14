@@ -8,12 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 
 ### Added
 
-- Audit writes from the proxy are queued and committed in batches, off the request path.
-- `logging.store: none` skips the audit file for lab runs. Profiles and approvals stay in memory.
-
-### Changed
-
-- Streaming output-secret **block** policies scan SSE as it arrives and stop before the secret reaches the client. HTTP 403 is still returned when the secret appears before any safe text is released.
+- Optional `logging.org` label on `aiwall.audit.v1`. The field is omitted when unset.
 
 ## [0.2.0] - 2026-10-11
 
