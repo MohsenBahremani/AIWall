@@ -4,6 +4,11 @@
 
 from __future__ import annotations
 
+import logging
+import queue
+import threading
+from collections.abc import Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
@@ -14,6 +19,10 @@ from app.agents.types import AgentAction
 from app.audit.models import AuditEventRow
 from app.audit.reasons import assert_valid_audit_reason
 from app.storage.database import session_factory
+
+logger = logging.getLogger(__name__)
+_STOP = object()
+_BATCH_LIMIT = 32
 
 
 @dataclass(frozen=True)
@@ -186,13 +195,184 @@ class EventPage:
 
 
 class AuditWriter:
-    def __init__(self, engine: Engine):
+    def __init__(
+        self,
+        engine: Engine,
+        *,
+        persist: bool = True,
+        queue_writes: bool = False,
+    ):
         self._engine = engine
         self._session_factory = session_factory(engine)
+        self._persist = persist
+        self._queue: queue.Queue[tuple[AuditEvent, tuple[AgentAction, ...]] | object] | None = None
+        self._worker: threading.Thread | None = None
+        if persist and queue_writes:
+            self._queue = queue.Queue()
+            self._worker = threading.Thread(
+                target=self._worker_loop,
+                name="aiwall-audit",
+                daemon=True,
+            )
+            self._worker.start()
 
-    def write(self, event: AuditEvent) -> AuditEventRow:
+    def record(
+        self,
+        event: AuditEvent,
+        actions: Sequence[AgentAction] = (),
+    ) -> None:
+        """Persist an audit row without blocking the caller on SQLite.
+
+        Direct ``write`` stays synchronous for tests and maintenance. The proxy
+        uses this so request handlers return while a background thread commits.
+        """
         assert_valid_audit_reason(event.reason)
-        row = AuditEventRow(
+        if not self._persist:
+            return
+        action_tuple = tuple(actions)
+        if self._queue is None:
+            row = self.write(event)
+            if action_tuple:
+                self.write_agent_actions(
+                    request_id=event.request_id,
+                    actions=action_tuple,
+                    audit_event_id=row.id,
+                    timestamp=event.timestamp,
+                )
+            return
+        self._queue.put((event, action_tuple))
+
+    def flush(self) -> None:
+        """Wait until queued proxy events are committed."""
+        if self._queue is None:
+            return
+        self._queue.join()
+
+    def close(self) -> None:
+        if self._queue is None or self._worker is None:
+            return
+        self._queue.put(_STOP)
+        self._worker.join(timeout=5)
+        self._queue = None
+        self._worker = None
+
+    @contextmanager
+    def _read_session(self):
+        self.flush()
+        with self._session_factory() as session:
+            yield session
+
+    def _worker_loop(self) -> None:
+        assert self._queue is not None
+        while True:
+            item = self._queue.get()
+            if item is _STOP:
+                self._queue.task_done()
+                return
+            batch: list[tuple[AuditEvent, tuple[AgentAction, ...]]] = [item]
+            stop = False
+            while len(batch) < _BATCH_LIMIT:
+                try:
+                    nxt = self._queue.get_nowait()
+                except queue.Empty:
+                    break
+                if nxt is _STOP:
+                    stop = True
+                    self._queue.task_done()
+                    break
+                batch.append(nxt)  # type: ignore[arg-type]
+            try:
+                self._write_batch(batch)
+            except Exception:
+                logger.exception("audit batch failed")
+            finally:
+                for _ in batch:
+                    self._queue.task_done()
+            if stop:
+                return
+
+    def _write_batch(
+        self,
+        batch: Sequence[tuple[AuditEvent, tuple[AgentAction, ...]]],
+    ) -> None:
+        if any(actions for _event, actions in batch):
+            self._write_batch_orm(batch)
+            return
+        sql = (
+            "INSERT INTO audit_events ("
+            "timestamp, request_id, user_id, app_id, provider, model, decision, reason, "
+            "input_length, output_length, estimated_cost, prompt_tokens, completion_tokens, "
+            "total_tokens, policy_id, matched_rule_ids, categories, redaction_count, "
+            "latency_ms, raw_prompt, raw_response"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        )
+        rows = [self._event_params(event) for event, _actions in batch]
+        connection = self._engine.raw_connection()
+        try:
+            cursor = connection.cursor()
+            cursor.executemany(sql, rows)
+            connection.commit()
+        finally:
+            connection.close()
+
+    def _event_params(self, event: AuditEvent) -> tuple[object, ...]:
+        when = event.timestamp or datetime.now(UTC)
+        if when.tzinfo is not None:
+            when = when.astimezone(UTC).replace(tzinfo=None)
+        # Match SQLAlchemy's SQLite DateTime text so range queries still hit.
+        stored_timestamp = when.strftime("%Y-%m-%d %H:%M:%S.%f")
+        return (
+            stored_timestamp,
+            event.request_id,
+            event.user_id,
+            event.app_id,
+            event.provider,
+            event.model,
+            event.decision,
+            event.reason,
+            event.input_length,
+            event.output_length,
+            event.estimated_cost,
+            event.prompt_tokens,
+            event.completion_tokens,
+            event.total_tokens,
+            event.policy_id,
+            event.matched_rule_ids,
+            event.categories,
+            event.redaction_count,
+            event.latency_ms,
+            event.raw_prompt,
+            event.raw_response,
+        )
+
+    def _write_batch_orm(
+        self,
+        batch: Sequence[tuple[AuditEvent, tuple[AgentAction, ...]]],
+    ) -> None:
+        with self._session_factory() as session:
+            for event, actions in batch:
+                row = self._build_row(event)
+                session.add(row)
+                session.flush()
+                when = event.timestamp or row.timestamp
+                for action in actions:
+                    session.add(
+                        AgentActionRow(
+                            timestamp=when,
+                            request_id=event.request_id,
+                            audit_event_id=row.id,
+                            action_type=action.action_type,
+                            action_target=action.action_target,
+                            tool_name=action.tool_name,
+                            arguments_preview=action.arguments_preview,
+                            tool_call_id=action.tool_call_id,
+                        )
+                    )
+            session.commit()
+
+    def _build_row(self, event: AuditEvent) -> AuditEventRow:
+        assert_valid_audit_reason(event.reason)
+        return AuditEventRow(
             timestamp=event.timestamp or datetime.now(UTC),
             request_id=event.request_id,
             user_id=event.user_id,
@@ -215,6 +395,11 @@ class AuditWriter:
             raw_prompt=event.raw_prompt,
             raw_response=event.raw_response,
         )
+
+    def write(self, event: AuditEvent) -> AuditEventRow:
+        row = self._build_row(event)
+        if not self._persist:
+            return row
         with self._session_factory() as session:
             session.add(row)
             session.commit()
@@ -264,7 +449,7 @@ class AuditWriter:
 
         if limit < 1:
             raise ValueError("limit must be >= 1")
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = select(AgentActionRow).order_by(AgentActionRow.id.desc()).limit(limit)
             if request_id:
                 stmt = stmt.where(AgentActionRow.request_id == request_id)
@@ -326,7 +511,7 @@ class AuditWriter:
         if has_raw_prompt:
             filters.append(AuditEventRow.raw_prompt.is_not(None))
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             count_stmt = select(func.count()).select_from(AuditEventRow)
             if filters:
                 count_stmt = count_stmt.where(*filters)
@@ -367,7 +552,7 @@ class AuditWriter:
         if until is not None:
             filters.append(AuditEventRow.timestamp < until)
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             count_stmt = select(AuditEventRow.decision, func.count())
             if filters:
                 count_stmt = count_stmt.where(*filters)
@@ -404,7 +589,7 @@ class AuditWriter:
         if retention_days < 1:
             raise ValueError("retention_days must be >= 1")
         cutoff = (now or datetime.now(UTC)) - timedelta(days=retention_days)
-        with self._session_factory() as session:
+        with self._read_session() as session:
             count_stmt = select(func.count()).select_from(AuditEventRow).where(
                 AuditEventRow.timestamp < cutoff
             )
@@ -419,21 +604,21 @@ class AuditWriter:
     def get_by_id(self, event_id: int) -> AuditEventRow | None:
         from sqlalchemy import select
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = select(AuditEventRow).where(AuditEventRow.id == event_id)
             return session.scalars(stmt).first()
 
     def list_providers(self) -> list[str]:
         from sqlalchemy import select
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = select(AuditEventRow.provider).distinct().order_by(AuditEventRow.provider)
             return list(session.scalars(stmt).all())
 
     def list_models(self, *, provider: str | None = None) -> list[str]:
         from sqlalchemy import select
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = select(AuditEventRow.model).distinct().order_by(AuditEventRow.model)
             if provider:
                 stmt = stmt.where(AuditEventRow.provider == provider)
@@ -443,7 +628,7 @@ class AuditWriter:
         from sqlalchemy import func, select
 
         since = datetime.now(UTC) - timedelta(hours=window_hours)
-        with self._session_factory() as session:
+        with self._read_session() as session:
             count_stmt = (
                 select(AuditEventRow.decision, func.count())
                 .where(AuditEventRow.timestamp >= since)
@@ -500,7 +685,7 @@ class AuditWriter:
         )
         since = first_bucket_start
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = select(
                 AuditEventRow.timestamp,
                 AuditEventRow.estimated_cost,
@@ -562,7 +747,7 @@ class AuditWriter:
             window_end = window_end.astimezone(UTC)
         since = window_end - timedelta(hours=window_hours)
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = (
                 select(
                     AuditEventRow.provider,
@@ -606,7 +791,7 @@ class AuditWriter:
         """Hit counts and last-triggered timestamps keyed by ``policy_id``."""
         from sqlalchemy import func, select
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = (
                 select(
                     AuditEventRow.policy_id,
@@ -662,7 +847,7 @@ class AuditWriter:
         """Aggregate usage for an optional profile and/or provider scope."""
         from sqlalchemy import func, select
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             filters = [AuditEventRow.timestamp >= since]
             if until is not None:
                 filters.append(AuditEventRow.timestamp < until)
@@ -709,7 +894,7 @@ class AuditWriter:
         if until is not None:
             filters.append(AuditEventRow.timestamp < until)
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = (
                 select(AuditEventRow.decision, func.count())
                 .where(*filters)
@@ -730,7 +915,7 @@ class AuditWriter:
         """
         from sqlalchemy import select
 
-        with self._session_factory() as session:
+        with self._read_session() as session:
             stmt = select(AuditEventRow.user_id, AuditEventRow.categories).where(
                 AuditEventRow.categories.is_not(None)
             )

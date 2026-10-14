@@ -44,7 +44,7 @@ Scenarios:
 
 - **Policy cost is small.** Secret scanning and guardrails add less than 1 ms p50 vs proxy-only at serial load. The baseline proxy path dominates.
 - **~11 ms p50 at concurrency 1** is reasonable for a homelab or dev-machine gateway (audit write + policy eval + httpx hop).
-- **Throughput caps around 85 req/s** under concurrent load regardless of policy set. That pattern points to synchronous SQLite audit commits on the asyncio event loop, not regex scanning.
+- **Throughput capped around 85 req/s** under concurrent load in this August run. That pattern pointed to synchronous SQLite audit commits on the asyncio event loop, not regex scanning. The 2026-10-13 remeasure below is the current number.
 - **Do not quote the +70 ms concurrent number as "AIWall latency."** It reflects local SQLite contention under parallel requests, not provider RTT. Real deployments with remote providers (50–500 ms RTT) will see AIWall as a small fraction of total time at low QPS.
 
 ## What to tell operators / partners
@@ -53,10 +53,25 @@ Scenarios:
 |---|---|
 | Homelab / solo dev | "About 10 ms added per request on localhost; negligible vs OpenAI/Ollama RTT." |
 | Small team (low QPS) | "Fine for tens of concurrent users if the gateway runs on a dedicated core." |
-| High-QPS router vendor | "Not production-grade at hundreds of req/s yet; audit path needs async/batched writes or Postgres before we'd claim router-class throughput." |
+| High-QPS router vendor | "About 130–140 req/s on this homelab box with queued SQLite writes. Not router-class; Postgres is still Phase 9." |
+
+## Results (2026-10-13, same harness, queued audit writes)
+
+Proxy audit commits now run on a background writer using a direct SQLite insert, so the request handler does not wait on SQLAlchemy. `logging.store: none` skips the audit file for lab runs.
+
+### Concurrent load (concurrency = 8, 200 requests)
+
+| Scenario | p50 | p95 | vs baseline | Throughput |
+|---|---:|---:|---:|---:|
+| baseline | 20 ms | 55 ms | — | ~318 req/s |
+| proxy-only | 48 ms | 147 ms | **+28 ms** | ~127 req/s |
+| scanning | 51 ms | 105 ms | **+31 ms** | ~140 req/s |
+| guardrails | 53 ms | 83 ms | **+33 ms** | ~143 req/s |
+
+`logging.store: none` on the proxy-only scenario, same concurrency: p50 47 ms, ~141 req/s. That is the same band as queued SQLite. Use `none` when a lab run should not create an audit file, not as a faster production setting.
+
+Serial load stayed in the same range as the August run (about 15 ms p50 for proxy-only at concurrency 1).
 
 ## Planned improvements (not measured here)
 
-- Batch or async audit writes to remove the ~85 req/s ceiling
-- Optional `logging.store=none` for latency-sensitive lab runs
 - Postgres backend (Phase 9) for multi-tenant throughput

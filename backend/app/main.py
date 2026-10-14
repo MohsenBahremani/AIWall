@@ -36,7 +36,11 @@ from app.policies.engine import PolicyEngine
 from app.profiles.store import ProfileStore
 from app.proxy.pricing import CostEstimator, resolve_prices_path
 from app.proxy.routes import router as proxy_router
-from app.storage.database import create_engine_from_config, init_db
+from app.storage.database import (
+    audit_persistence_enabled,
+    create_engine_from_config,
+    init_db,
+)
 
 logger = logging.getLogger(__name__)
 DEFAULT_TIMEOUT = httpx.Timeout(60.0, connect=10.0, read=300.0, write=60.0, pool=10.0)
@@ -47,7 +51,13 @@ def _init_storage(
 ) -> tuple[Any, AuditWriter, ProfileStore, ApprovalStore]:
     engine = create_engine_from_config(config)
     init_db(engine)
-    return engine, AuditWriter(engine), ProfileStore(engine), ApprovalStore(engine)
+    persist = audit_persistence_enabled(config)
+    return (
+        engine,
+        AuditWriter(engine, persist=persist, queue_writes=persist),
+        ProfileStore(engine),
+        ApprovalStore(engine),
+    )
 
 
 def create_app(
@@ -120,6 +130,7 @@ def create_app(
         finally:
             if heartbeat is not None:
                 await heartbeat.stop()
+            audit_writer.close()
             engine.dispose()
 
     app = FastAPI(

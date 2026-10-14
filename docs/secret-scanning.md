@@ -16,6 +16,8 @@ values — never as raw secret strings.
    - High-entropy token detection (`high-entropy`)
 3. Allowlists and documentation-placeholder filters remove known safe values.
 4. Policy actions decide what happens next: `warn`, `block`, or `redact`.
+   On a streaming block, events are held back until later text is scanned
+   clean, then the stream stops at the first secret.
 
 ## Supported detections
 

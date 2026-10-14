@@ -196,3 +196,51 @@ async def test_stream_output_secret_is_blocked(tmp_path) -> None:
     assert aws_key not in response.text
     assert scan_response_body(sse).contains_secret is True
     await http_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_stream_stops_before_secret_after_safe_prefix(tmp_path) -> None:
+    aws_key = _random_aws_key()
+    first = "a" * 200
+    second = "b" * 200
+
+    def event(text: str) -> bytes:
+        payload = json.dumps({"choices": [{"delta": {"content": text}}]})
+        return f"data: {payload}\n\n".encode()
+
+    sse = event(first) + event(second) + event(f" {aws_key}") + b"data: [DONE]\n\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=sse,
+            headers={"content-type": "text/event-stream"},
+        )
+
+    config_path = write_test_config(
+        tmp_path,
+        """  - name: block-output-secrets
+    when: output.contains_secret
+    action: block""",
+    )
+    http_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app = create_app(config_path=config_path, http_client=http_client)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "gpt-4o-mini",
+                "stream": True,
+                "messages": [{"role": "user", "content": "say hello"}],
+            },
+        )
+
+    assert response.status_code == 200
+    assert first.encode() in response.content
+    assert aws_key not in response.text
+    assert second not in response.text
+    rows = app.state.audit_writer.list_recent(limit=1)
+    assert rows[0].decision == "block"
+    assert rows[0].reason == "output-secret-detected"
+    await http_client.aclose()

@@ -123,7 +123,7 @@ def log_proxy_event(
     matched_rule_ids = ",".join(rule_ids) if rule_ids else None
     categories_value = ",".join(sorted(categories)) if categories else None
 
-    audit_row = audit_writer.write(
+    audit_writer.record(
         AuditEvent(
             request_id=request_id,
             user_id=user_id,
@@ -144,12 +144,6 @@ def log_proxy_event(
             redaction_count=redaction_count,
             raw_prompt=raw_prompt,
             raw_response=raw_response,
-        )
+        ),
+        actions=extract_agent_actions_from_body(body),
     )
-    agent_actions = extract_agent_actions_from_body(body)
-    if agent_actions:
-        audit_writer.write_agent_actions(
-            request_id=request_id,
-            audit_event_id=audit_row.id,
-            actions=agent_actions,
-        )

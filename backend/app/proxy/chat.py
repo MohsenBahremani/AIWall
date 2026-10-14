@@ -48,11 +48,13 @@ from app.proxy.tokens import (
 from app.rates.window import check_extraction_rate
 from app.scanners.secrets import (
     ScanResult,
+    SecretScanner,
     redact_request_body,
     redact_response_body,
     scan_request_body,
     scan_response_body,
 )
+from app.scanners.stream_gate import SseSecretGate
 
 FORWARD_REQUEST_HEADERS = {
     "authorization",
@@ -119,6 +121,15 @@ def _with_rule_ids(result: PolicyResult, scan_result: ScanResult) -> PolicyResul
 def _has_output_secret_policy(config: AIWallConfig) -> bool:
     return any(
         policy.enabled and "output.contains_secret" in policy.when
+        for policy in config.policies
+    )
+
+
+def _output_secret_block_enabled(config: AIWallConfig) -> bool:
+    return any(
+        policy.enabled
+        and policy.action == "block"
+        and "output.contains_secret" in policy.when
         for policy in config.policies
     )
 
@@ -403,6 +414,63 @@ class ChatCompletionProxy:
             categories=categories,
         )
         return _with_rule_ids(self._policy_engine.evaluate_output(context), scan_result)
+
+    def _output_block_result(
+        self,
+        gate: SseSecretGate,
+        *,
+        model: str,
+        input_length: int,
+        user_role: str | None,
+        user_id: str | None,
+        categories: frozenset[str],
+    ) -> PolicyResult:
+        context = PolicyContext(
+            body=gate.text.encode("utf-8"),
+            model=model,
+            input_length=input_length,
+            output_contains_secret=True,
+            user_role=user_role,
+            user_id=user_id,
+            categories=categories,
+        )
+        return _with_rule_ids(self._policy_engine.evaluate_output(context), gate.scan_result)
+
+    async def _log_output_block(
+        self,
+        *,
+        request_id: str,
+        provider_name: str,
+        model: str,
+        body: bytes,
+        input_length: int,
+        output_length: int,
+        started: float,
+        output_result: PolicyResult,
+        user_id: str | None,
+        categories: frozenset[str],
+    ) -> None:
+        log_proxy_event(
+            self._audit_writer,
+            self._config,
+            request_id=request_id,
+            provider_name=provider_name,
+            model=model,
+            decision="block",
+            reason=output_result.reason,
+            input_length=input_length,
+            output_length=output_length,
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            body=body,
+            policy_id=output_result.policy_id,
+            rule_ids=output_result.rule_ids,
+            user_id=user_id,
+            categories=categories,
+        )
+        await self._emit_block_alerts(
+            request_id=request_id,
+            policy_result=output_result,
+        )
 
     async def forward(self, request: Request) -> Response | StreamingResponse | JSONResponse:
         body = await request.body()
@@ -848,6 +916,146 @@ class ChatCompletionProxy:
             headers=response_headers or None,
         )
 
+    async def _forward_stream_output_block(
+        self,
+        *,
+        upstream_response: httpx.Response,
+        request_id: str,
+        provider_name: str,
+        model: str,
+        body: bytes,
+        input_length: int,
+        started: float,
+        policy_result: PolicyResult,
+        redaction_count: int = 0,
+        extra_headers: dict[str, str] | None = None,
+        user_id: str | None = None,
+        user_role: str | None = None,
+        categories: frozenset[str] = frozenset(),
+    ) -> StreamingResponse | Response:
+        """Scan SSE as it arrives and stop before a secret reaches the client."""
+        scanner = SecretScanner(
+            self._config.scanners,
+            extra_rules=self._secret_extra_rules,
+        )
+        gate = SseSecretGate(scanner)
+        released: list[bytes] = []
+        try:
+            async for chunk in upstream_response.aiter_bytes():
+                released.extend(gate.feed(chunk))
+                if gate.blocked or released:
+                    break
+            else:
+                released.extend(gate.finish())
+        except Exception:
+            await upstream_response.aclose()
+            raise
+
+        if gate.blocked and not released:
+            await upstream_response.aclose()
+            output_result = self._output_block_result(
+                gate,
+                model=model,
+                input_length=input_length,
+                user_role=user_role,
+                user_id=user_id,
+                categories=categories,
+            )
+            await self._log_output_block(
+                request_id=request_id,
+                provider_name=provider_name,
+                model=model,
+                body=body,
+                input_length=input_length,
+                output_length=len(gate.text.encode("utf-8")),
+                started=started,
+                output_result=output_result,
+                user_id=user_id,
+                categories=categories,
+            )
+            return policy_blocked_response(output_result)
+
+        async def stream_body() -> AsyncIterator[bytes]:
+            sent = bytearray()
+            try:
+                for part in released:
+                    sent.extend(part)
+                    yield part
+                if not gate.blocked:
+                    async for chunk in upstream_response.aiter_bytes():
+                        for part in gate.feed(chunk):
+                            sent.extend(part)
+                            yield part
+                        if gate.blocked:
+                            break
+                    else:
+                        for part in gate.finish():
+                            sent.extend(part)
+                            yield part
+            finally:
+                await upstream_response.aclose()
+                if gate.blocked:
+                    output_result = self._output_block_result(
+                        gate,
+                        model=model,
+                        input_length=input_length,
+                        user_role=user_role,
+                        user_id=user_id,
+                        categories=categories,
+                    )
+                    await self._log_output_block(
+                        request_id=request_id,
+                        provider_name=provider_name,
+                        model=model,
+                        body=body,
+                        input_length=input_length,
+                        output_length=len(gate.text.encode("utf-8")),
+                        started=started,
+                        output_result=output_result,
+                        user_id=user_id,
+                        categories=categories,
+                    )
+                else:
+                    output_bytes = bytes(sent)
+                    token_usage = extract_stream_token_usage(
+                        body, output_bytes.decode("utf-8", errors="replace")
+                    )
+                    cost_estimate = self._cost_estimator.estimate(
+                        provider_name, model, token_usage
+                    )
+                    log_proxy_event(
+                        self._audit_writer,
+                        self._config,
+                        request_id=request_id,
+                        provider_name=provider_name,
+                        model=model,
+                        decision=_audit_decision(policy_result),
+                        reason=_audit_reason(policy_result),
+                        input_length=input_length,
+                        output_length=len(output_bytes),
+                        latency_ms=(time.perf_counter() - started) * 1000.0,
+                        body=body,
+                        response_text=output_bytes.decode("utf-8", errors="replace"),
+                        policy_id=_policy_id_for_audit(policy_result),
+                        prompt_tokens=token_usage.prompt_tokens,
+                        completion_tokens=token_usage.completion_tokens,
+                        total_tokens=token_usage.total_tokens,
+                        estimated_cost=(
+                            cost_estimate.estimated_cost if cost_estimate else None
+                        ),
+                        redaction_count=redaction_count,
+                        rule_ids=policy_result.rule_ids,
+                        user_id=user_id,
+                        categories=categories,
+                    )
+
+        return StreamingResponse(
+            stream_body(),
+            status_code=upstream_response.status_code,
+            media_type=upstream_response.headers.get("content-type", "text/event-stream"),
+            headers=extra_headers or None,
+        )
+
     async def _forward_stream(
         self,
         *,
@@ -943,7 +1151,25 @@ class ChatCompletionProxy:
                 headers=extra_headers or None,
             )
 
-        if _has_output_secret_policy(self._policy_engine.reload()):
+        fresh_config = self._policy_engine.reload()
+        if _output_secret_block_enabled(fresh_config):
+            return await self._forward_stream_output_block(
+                upstream_response=upstream_response,
+                request_id=request_id,
+                provider_name=provider_name,
+                model=model,
+                body=body,
+                input_length=input_length,
+                started=started,
+                policy_result=policy_result,
+                redaction_count=redaction_count,
+                extra_headers=extra_headers,
+                user_id=user_id,
+                user_role=user_role,
+                categories=categories,
+            )
+
+        if _has_output_secret_policy(fresh_config):
             chunks: list[bytes] = []
             try:
                 async for chunk in upstream_response.aiter_bytes():

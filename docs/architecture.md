@@ -44,8 +44,8 @@ Upstream provider (OpenAI, Ollama, ...)
 8. **Daily limits** — for requests carrying a profile key, projected tokens and cost are checked against that profile's daily allowance; exceeding it blocks with reason `daily-limit`.
 9. **Budget checkers** — registered plugins (Pro cost budgets) see the projected tokens and cost and may block or warn with reason `cost-budget`. See [plugins.md](plugins.md).
 10. **Redaction** — on a `redact` verdict, matched secrets in the outbound body are masked before forwarding.
-11. **Forward** — non-streaming: full upstream response; streaming: SSE chunks passed through to the client (or buffered when an `output.contains_secret` policy is enabled).
-12. **Output DLP** — if a policy uses `output.contains_secret`, the completion is scanned; block returns HTTP 403 (`output-secret-detected`) and never sends the secret to the client.
+11. **Forward** — non-streaming: full upstream response; streaming: SSE chunks passed through, with a short holdback when an output-secret **block** policy is enabled.
+12. **Output DLP** — if a policy uses `output.contains_secret`, the completion is scanned. A block stops the stream at the first secret (HTTP 403 when nothing safe was sent yet) and never sends the secret to the client. Redact still masks the full reply.
 13. **Audit** — every request writes a row to SQLite (`decision`, `reason`, tokens, estimated cost, latency, redaction count, `user_id`). Agent tool actions are stored in `agent_actions` when present.
 
 Blocked requests never reach the upstream provider. Redacted requests reach the provider with secrets masked.
@@ -129,7 +129,7 @@ http://<aiwall-host>:8080/v1
 
 ## Data storage
 
-- **Audit events** — SQLite at the path configured in `logging.store` (default `sqlite:///data/aiwall.db`).
+- **Audit events** — SQLite at the path configured in `logging.store` (default `sqlite:///data/aiwall.db`). Proxy writes are queued off the request path. `logging.store: none` skips the audit file for lab runs; profiles stay in memory.
 - **Agent actions** — `agent_actions` rows linked by `request_id` / `audit_event_id`. Tool/function calls in chat requests are detected and classified as `tool_call`, `shell`, or `file_access`, with `action_target` set to the tool name, command, or path.
 - **Pending approvals** — `pending_approvals` rows for held `require_approval` requests; operators decide via `/agents` (GUI) or `/approvals` (JSON API).
 - **Configuration** — `aiwall.yaml` on disk; re-read by the policy engine on each evaluation.

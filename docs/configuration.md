@@ -195,7 +195,7 @@ Cost-based policies use a pre-forward estimate (prompt tokens + `max_tokens` / `
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `store` | string | `sqlite:///data/aiwall.db` | SQLite database URL |
+| `store` | string | `sqlite:///data/aiwall.db` | SQLite database URL, or `none` to skip the audit file (lab only; profiles and approvals stay in memory) |
 | `log_raw_prompts` | boolean | `false` | Store prompt/response text in audit rows (opt-in). Detected secrets are always masked as `[REDACTED:<rule_id>]` before storage. When `true`, the `/prompts` viewer is available and shows a privacy warning banner. Can also be toggled from the Settings page (`settings-overrides.yaml`). |
 | `retention_days` | integer | `90` | Delete audit events older than this many days (purged on startup and when retention is saved in Settings). |
 
@@ -508,7 +508,7 @@ The built-in scanner runs on request message content. Rules include:
 
 Wire into policy with `when: input.contains_secret` and `action: block` (or `redact` / `warn`).
 
-Scan **model replies** the same way with `when: output.contains_secret`. Default example configs include `block-output-secrets`. Streaming responses are buffered when an output-secret policy is enabled so a leak can be blocked instead of already flushed to the client.
+Scan **model replies** the same way with `when: output.contains_secret`. Default example configs include `block-output-secrets`. A block policy scans SSE as it arrives and closes the stream on the first secret, so that secret is not sent. If the secret shows up before any safe text was released, the client gets HTTP 403. Redact still masks the whole reply before it is sent.
 
 `action: redact` masks matched secrets in message content as `[REDACTED:<rule_id>]` before forwarding. The audit row uses `decision: redact` and stores `redaction_count`.
 

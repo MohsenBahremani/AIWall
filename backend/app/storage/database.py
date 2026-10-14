@@ -9,6 +9,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.audit.models import Base
 from app.config import AIWallConfig
@@ -21,10 +22,24 @@ def sqlite_path_from_store(store_url: str) -> Path:
     return Path(path_part)
 
 
+def audit_persistence_enabled(config: AIWallConfig) -> bool:
+    return config.logging.store != "none"
+
+
 def create_engine_from_config(config: AIWallConfig) -> Engine:
     store_url = config.logging.store
+    if store_url == "none":
+        # One shared connection so in-memory profiles/approvals stay visible.
+        # Audit rows are not written when persistence is off.
+        return create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
     if not store_url.startswith("sqlite:"):
-        raise ValueError(f"Only SQLite audit stores are supported in MVP: {store_url}")
+        raise ValueError(
+            f"logging.store must be a sqlite URL or 'none': {store_url}"
+        )
 
     db_path = sqlite_path_from_store(store_url)
     db_path.parent.mkdir(parents=True, exist_ok=True)
