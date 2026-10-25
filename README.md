@@ -10,7 +10,7 @@ AIWall sits between your apps and AI providers. You get visibility, policy enfor
 
 **Ready for day-to-day use:** OpenAI-compatible proxy, policies, secret scanning, family profiles, control panel, alerts, and agent tool guardrails (shell/file risk + approve/deny).
 
-**Release:** `0.2.0`. The audit JSONL schema (`aiwall.audit.v1`) is unchanged, and both companion repos ship `0.2.0` against it:
+**Release:** `0.2.1`. The audit JSONL schema (`aiwall.audit.v1`) is unchanged, and both companion repos ship `0.2.1` against it:
 
 - Detection packs (Wazuh, Sigma, Grafana/Loki) with playbooks and ATLAS coverage in [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections)
 - Red-team payloads, campaign runners, and a must-block regression suite in [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam)

@@ -6,9 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-24
+
 ### Added
 
 - Optional `logging.org` label on `aiwall.audit.v1`. The field is omitted when unset.
+- Proxy audit writes are queued and committed off the request path.
+- `logging.store: none` skips the audit file for lab runs. Profiles and approvals stay in memory.
+
+### Changed
+
+- Streaming output-secret block policies scan SSE as it arrives and stop before the secret reaches the client. HTTP 403 is still returned when the secret appears before any safe text is released.
+
+### Compatibility
+
+- Audit export schema: `aiwall.audit.v1` (unchanged).
+- Detection packs targeting this release: AIWall-detections `0.2.1`. The pack still accepts Community `>= 0.2.0`.
 
 ## [0.2.0] - 2026-10-11
 
