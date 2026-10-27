@@ -6,6 +6,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 
 ## [Unreleased]
 
+### Added
+
+- Demo GIF above the fold in the README, showing a blocked AWS key and a blocked prompt injection landing on the audit trail. `scripts/capture-demo.sh` reproduces the transcript against a throwaway instance and `scripts/make-demo-gif.py` renders it.
+
 ## [0.2.1] - 2026-10-24
 
 ### Added

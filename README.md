@@ -6,6 +6,10 @@ AIWall sits between your apps and AI providers. You get visibility, policy enfor
 
 > AIWall is to AI traffic what Firewalla is to home networks.
 
+![AIWall blocking a leaked AWS key and a prompt injection, then writing both to the audit trail](docs/screenshots/aiwall-demo.gif)
+
+<sub>Real output from a local run — no API key and no upstream provider needed, because policy is evaluated before routing. Reproduce it with [`scripts/capture-demo.sh`](scripts/capture-demo.sh).</sub>
+
 ## Where things stand
 
 **Ready for day-to-day use:** OpenAI-compatible proxy, policies, secret scanning, family profiles, control panel, alerts, and agent tool guardrails (shell/file risk + approve/deny).
