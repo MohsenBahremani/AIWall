@@ -1,12 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Mohsen Bah
 # SPDX-License-Identifier: Apache-2.0
-"""SQLite database engine and session management."""
+"""Database engine and session management.
+
+SQLite is the default. PostgreSQL is selected with a ``postgresql+psycopg://``
+store URL (``postgresql://`` and ``postgres://`` are accepted and use psycopg).
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -36,26 +40,40 @@ def create_engine_from_config(config: AIWallConfig) -> Engine:
             connect_args={"check_same_thread": False},
             poolclass=StaticPool,
         )
-    if not store_url.startswith("sqlite:"):
-        raise ValueError(
-            f"logging.store must be a sqlite URL or 'none': {store_url}"
+    if store_url.startswith("sqlite:"):
+        db_path = sqlite_path_from_store(store_url)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        engine = create_engine(
+            store_url,
+            connect_args={"check_same_thread": False},
         )
 
-    db_path = sqlite_path_from_store(store_url)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, _connection_record) -> None:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.close()
 
-    engine = create_engine(
-        store_url,
-        connect_args={"check_same_thread": False},
+        return engine
+    if _is_postgres(store_url):
+        return create_engine(_postgres_url(store_url), pool_pre_ping=True)
+    raise ValueError(
+        "logging.store must be a sqlite URL, a postgresql URL, or 'none': "
+        f"{store_url}"
     )
 
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, _connection_record) -> None:
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.close()
 
-    return engine
+def _is_postgres(store_url: str) -> bool:
+    return store_url.startswith(("postgresql://", "postgresql+", "postgres://"))
+
+
+def _postgres_url(store_url: str) -> str:
+    """Use the psycopg v3 dialect unless the URL already names one."""
+    if store_url.startswith("postgresql+"):
+        return store_url
+    if store_url.startswith("postgres://"):
+        return "postgresql+psycopg://" + store_url.removeprefix("postgres://")
+    return "postgresql+psycopg://" + store_url.removeprefix("postgresql://")
 
 
 def init_db(engine: Engine) -> None:
@@ -71,6 +89,13 @@ def init_db(engine: Engine) -> None:
     _ensure_pending_approvals_table(engine)
 
 
+def _column_names(engine: Engine, table: str) -> set[str]:
+    inspector = inspect(engine)
+    if not inspector.has_table(table):
+        return set()
+    return {column["name"] for column in inspector.get_columns(table)}
+
+
 def _migrate_audit_schema(engine: Engine) -> None:
     columns = {
         "prompt_tokens": "INTEGER",
@@ -81,42 +106,34 @@ def _migrate_audit_schema(engine: Engine) -> None:
         "categories": "TEXT",
         "org": "TEXT",
     }
-    with engine.connect() as conn:
-        existing = {row[1] for row in conn.execute(text("PRAGMA table_info(audit_events)"))}
+    existing = _column_names(engine, "audit_events")
+    if not existing:
+        return
+    with engine.begin() as conn:
         for name, col_type in columns.items():
             if name not in existing:
                 conn.execute(text(f"ALTER TABLE audit_events ADD COLUMN {name} {col_type}"))
-        conn.commit()
+
+
+def _ensure_table(engine: Engine, name: str) -> None:
+    if inspect(engine).has_table(name):
+        return
+    Base.metadata.create_all(engine, tables=[Base.metadata.tables[name]])
 
 
 def _ensure_profiles_table(engine: Engine) -> None:
     """Create profiles table on existing databases that predate Phase 3.1."""
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        tables = {row[0] for row in rows}
-        if "profiles" in tables:
-            return
-    Base.metadata.create_all(engine, tables=[Base.metadata.tables["profiles"]])
+    _ensure_table(engine, "profiles")
 
 
 def _ensure_agent_actions_table(engine: Engine) -> None:
     """Create agent_actions table on existing databases that predate Phase 5.1."""
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        tables = {row[0] for row in rows}
-        if "agent_actions" in tables:
-            return
-    Base.metadata.create_all(engine, tables=[Base.metadata.tables["agent_actions"]])
+    _ensure_table(engine, "agent_actions")
 
 
 def _ensure_pending_approvals_table(engine: Engine) -> None:
     """Create pending_approvals table on existing databases that predate Phase 5.6."""
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        tables = {row[0] for row in rows}
-        if "pending_approvals" in tables:
-            return
-    Base.metadata.create_all(engine, tables=[Base.metadata.tables["pending_approvals"]])
+    _ensure_table(engine, "pending_approvals")
 
 
 def session_factory(engine: Engine) -> sessionmaker[Session]:
