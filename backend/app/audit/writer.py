@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Mohsen Bah
 # SPDX-License-Identifier: Apache-2.0
-"""Persist audit events to SQLite."""
+"""Persist audit events.
+
+The fast path inserts with the DB-API parameter style of the engine, so the
+same batch works on SQLite (``?``) and PostgreSQL (``%s``).
+"""
 
 from __future__ import annotations
 
@@ -23,6 +27,43 @@ from app.storage.database import session_factory
 logger = logging.getLogger(__name__)
 _STOP = object()
 _BATCH_LIMIT = 32
+_AUDIT_INSERT_COLUMNS = (
+    "timestamp",
+    "request_id",
+    "user_id",
+    "app_id",
+    "provider",
+    "model",
+    "decision",
+    "reason",
+    "input_length",
+    "output_length",
+    "estimated_cost",
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "policy_id",
+    "matched_rule_ids",
+    "categories",
+    "redaction_count",
+    "latency_ms",
+    "raw_prompt",
+    "raw_response",
+    "org",
+)
+
+
+def audit_insert_sql(paramstyle: str) -> str:
+    """INSERT for one audit row, using the dialect's parameter marker."""
+    if paramstyle == "qmark":
+        marker = "?"
+    elif paramstyle in {"format", "pyformat"}:
+        marker = "%s"
+    else:
+        raise ValueError(f"unsupported DB-API paramstyle: {paramstyle}")
+    columns = ", ".join(_AUDIT_INSERT_COLUMNS)
+    values = ", ".join([marker] * len(_AUDIT_INSERT_COLUMNS))
+    return f"INSERT INTO audit_events ({columns}) VALUES ({values})"
 
 
 @dataclass(frozen=True)
@@ -299,14 +340,7 @@ class AuditWriter:
         if any(actions for _event, actions in batch):
             self._write_batch_orm(batch)
             return
-        sql = (
-            "INSERT INTO audit_events ("
-            "timestamp, request_id, user_id, app_id, provider, model, decision, reason, "
-            "input_length, output_length, estimated_cost, prompt_tokens, completion_tokens, "
-            "total_tokens, policy_id, matched_rule_ids, categories, redaction_count, "
-            "latency_ms, raw_prompt, raw_response, org"
-            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        )
+        sql = audit_insert_sql(self._engine.dialect.paramstyle)
         rows = [self._event_params(event) for event, _actions in batch]
         connection = self._engine.raw_connection()
         try:
@@ -320,8 +354,12 @@ class AuditWriter:
         when = event.timestamp or datetime.now(UTC)
         if when.tzinfo is not None:
             when = when.astimezone(UTC).replace(tzinfo=None)
-        # Match SQLAlchemy's SQLite DateTime text so range queries still hit.
-        stored_timestamp = when.strftime("%Y-%m-%d %H:%M:%S.%f")
+        stored_timestamp: object
+        if self._engine.dialect.name == "sqlite":
+            # Match SQLAlchemy's SQLite DateTime text so range queries still hit.
+            stored_timestamp = when.strftime("%Y-%m-%d %H:%M:%S.%f")
+        else:
+            stored_timestamp = when
         return (
             stored_timestamp,
             event.request_id,
