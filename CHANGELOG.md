@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 
 - Demo GIF above the fold in the README, showing a blocked AWS key and a blocked prompt injection landing on the audit trail. `scripts/capture-demo.sh` reproduces the transcript against a throwaway instance and `scripts/make-demo-gif.py` renders it.
 - Keyless quick start. `./scripts/capture-demo.sh` is the no-API-key path and prints the audit lines. The dashboard stays on the Docker setup.
+- [docs/detecting-prompt-injection.md](docs/detecting-prompt-injection.md) walks one blocked injection from the gateway audit line through Wazuh 107217 and the PI-01 red-team hold.
 
 ## [0.2.1] - 2026-10-24
 

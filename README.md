@@ -19,6 +19,8 @@ AIWall sits between your apps and AI providers. You get visibility, policy enfor
 - Detection packs (Wazuh, Sigma, Grafana/Loki) with playbooks and ATLAS coverage in [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections)
 - Red-team payloads, campaign runners, and a must-block regression suite in [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam)
 
+How a blocked prompt injection becomes a Wazuh alert and a red-team hold: [Detecting prompt injection in your own AI gateway](docs/detecting-prompt-injection.md).
+
 Prompt-injection / jailbreak controls emit `injection-detected` / `jailbreak-detected`. High-volume / model-extraction floods emit `extraction-rate` when `rate_limits` is enabled. Secrets in **model replies** emit `output-secret-detected` when `output.contains_secret` is configured. See [configuration.md](docs/configuration.md) and [blocked-detections.md](https://github.com/MohsenBahremani/AIWall-detections/blob/main/docs/blocked-detections.md).
 
 ## What AIWall does
@@ -229,6 +231,7 @@ Tune providers and policies in `aiwall.yaml`. Deeper reading:
 - [docs/secret-scanning.md](docs/secret-scanning.md) — detectors
 - [docs/agent-guardrails.md](docs/agent-guardrails.md) — tool / shell / file guardrails
 - [docs/audit-export.md](docs/audit-export.md) — SIEM JSONL (`aiwall.audit.v1`)
+- [docs/detecting-prompt-injection.md](docs/detecting-prompt-injection.md) — one block, from the audit line to Wazuh and the red-team hold
 - [docs/architecture.md](docs/architecture.md) — request flow
 - [docs/benchmarks.md](docs/benchmarks.md) — local proxy overhead measurements
 - [docs/plugins.md](docs/plugins.md) — entry-point plugins: routes, alert channels, secret rules, presets, budget checkers
