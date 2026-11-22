@@ -71,9 +71,25 @@ Updates: `/path/to/AIWall-pro/scripts/update.sh`. See the Pro README for systemd
 | [AIWall-detections](https://github.com/MohsenBahremani/AIWall-detections) | Wazuh / Sigma / Grafana / SIEM content |
 | [AIWall-redteam](https://github.com/MohsenBahremani/AIWall-redteam) | Attack payloads and mitigation checks |
 
-## Quick start (~15 minutes)
+## Quick start
 
-Get AIWall running, proxy a request, trigger a secret block, and see it on the dashboard.
+### See a block without an API key
+
+This is the one-command demo. No Docker and no provider key. Policy runs before routing, so the blocks never leave the machine. The promise of this path is the HTTP 403 and the audit line, not the dashboard.
+
+```bash
+git clone https://github.com/MohsenBahremani/AIWall.git
+cd AIWall
+python3 -m venv .venv
+.venv/bin/pip install -e .
+./scripts/capture-demo.sh
+```
+
+You should see two **HTTP 403** responses (`secret-detected`, `injection-detected`) and both rows from `/events/export.jsonl`.
+
+### Full setup (~15 minutes)
+
+Get AIWall running, proxy a request, trigger a secret block, and see it on the dashboard. The dashboard is this path. The keyless script above does not start it.
 
 ### 1. Start AIWall (Docker)
 
