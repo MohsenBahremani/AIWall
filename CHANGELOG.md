@@ -12,6 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 - Keyless quick start. `./scripts/capture-demo.sh` is the no-API-key path and prints the audit lines. The dashboard stays on the Docker setup.
 - [docs/detecting-prompt-injection.md](docs/detecting-prompt-injection.md) walks one blocked injection from the gateway audit line through Wazuh 107217 and the PI-01 red-team hold.
 - `CONTRIBUTING.md`.
+- `logging.store` accepts a PostgreSQL URL (`postgresql+psycopg://...`). Schema creation and the queued audit insert use the same tables as SQLite. Install the driver with `pip install 'aiwall[postgres]'`.
 
 ## [0.2.1] - 2026-10-24
 

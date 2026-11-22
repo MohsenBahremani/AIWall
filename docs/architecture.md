@@ -129,7 +129,7 @@ http://<aiwall-host>:8080/v1
 
 ## Data storage
 
-- **Audit events** — SQLite at the path configured in `logging.store` (default `sqlite:///data/aiwall.db`). Proxy writes are queued off the request path. `logging.store: none` skips the audit file for lab runs; profiles stay in memory.
+- **Audit events** — SQLite at the path configured in `logging.store` (default `sqlite:///data/aiwall.db`), or PostgreSQL when `logging.store` is a `postgresql+psycopg://` URL. Proxy writes are queued off the request path. `logging.store: none` skips the audit file for lab runs; profiles stay in memory.
 - **Agent actions** — `agent_actions` rows linked by `request_id` / `audit_event_id`. Tool/function calls in chat requests are detected and classified as `tool_call`, `shell`, or `file_access`, with `action_target` set to the tool name, command, or path.
 - **Pending approvals** — `pending_approvals` rows for held `require_approval` requests; operators decide via `/agents` (GUI) or `/approvals` (JSON API).
 - **Configuration** — `aiwall.yaml` on disk; re-read by the policy engine on each evaluation.
