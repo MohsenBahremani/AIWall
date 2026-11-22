@@ -238,7 +238,7 @@ Tune providers and policies in `aiwall.yaml`. Deeper reading:
 
 ## Contributing
 
-Issues and PRs are welcome. External contributions use a Developer Certificate of Origin (DCO) sign-off — no CLA.
+Issues and PRs are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md). External contributions use a Developer Certificate of Origin (DCO) sign-off — no CLA.
 
 ## License
 
