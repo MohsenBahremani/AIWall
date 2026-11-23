@@ -26,6 +26,7 @@ from app.alerts.dispatcher import (
     triggers_for_warn,
 )
 from app.audit.helpers import log_proxy_event, measure_input_length, new_request_id
+from app.orgs.directory import current_organization
 from app.audit.writer import AuditWriter
 from app.auth.gateway import GatewayIdentity, gateway_auth_enabled, strip_client_authorization
 from app.budgets import BudgetCheckContext, BudgetChecker, run_budget_checkers
@@ -351,6 +352,7 @@ class ChatCompletionProxy:
         *,
         user_role: str | None = None,
         user_id: str | None = None,
+        organization_slug: str | None = None,
         category_result: CategoryResult | None = None,
     ) -> PolicyResult:
         scan_result = scan_request_body(
@@ -375,6 +377,7 @@ class ChatCompletionProxy:
             estimated_cost=cost_estimate.estimated_cost if cost_estimate else 0.0,
             user_role=user_role,
             user_id=user_id,
+            organization_slug=organization_slug,
             categories=category_result.categories,
             category=category_result.primary,
         )
@@ -478,6 +481,7 @@ class ChatCompletionProxy:
         provider = try_select_provider(self._config, model)
         identity = _identity_from_request(request)
         user_id = identity.user_id
+        current_organization.set(identity.organization_slug)
         request_id = new_request_id()
         input_length = measure_input_length(body)
         started = time.perf_counter()
@@ -499,6 +503,7 @@ class ChatCompletionProxy:
             input_length,
             user_role=identity.role,
             user_id=user_id,
+            organization_slug=identity.organization_slug,
             category_result=category_result,
         )
 

@@ -20,5 +20,6 @@ class PolicyContext:
     estimated_cost: float = 0.0
     user_role: str | None = None
     user_id: str | None = None
+    organization_slug: str | None = None
     categories: frozenset[str] = field(default_factory=frozenset)
     category: str | None = None

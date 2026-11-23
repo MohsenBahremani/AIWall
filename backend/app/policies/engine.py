@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import AIWallConfig, load_config
+from app.orgs.directory import policy_applies
 from app.policies.conditions import evaluate_condition
 from app.policies.context import PolicyContext
 from app.policies.overrides import policy_overrides_path
@@ -108,6 +109,8 @@ class PolicyEngine:
         for policy in config.policies:
             if not policy.enabled:
                 continue
+            if not policy_applies(policy, context.organization_slug):
+                continue
             try:
                 matched = evaluate_condition(policy.when, context)
             except ValueError:
@@ -157,6 +160,8 @@ class PolicyEngine:
 
         for policy in config.policies:
             if not policy.enabled:
+                continue
+            if not policy_applies(policy, context.organization_slug):
                 continue
             if "output.contains_secret" not in policy.when:
                 continue
