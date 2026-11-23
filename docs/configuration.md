@@ -213,6 +213,21 @@ organizations:
         team: security
         role: admin   # owner, admin, member, viewer
 ```
+
+### `sso.oidc`
+
+Optional. When `enabled` is false, `/auth/oidc/login` answers 404. The gateway loads the issuer's discovery document, sends the browser through the authorization-code flow, and reads userinfo. The login is accepted only when `preferred_username`, `email`, the mailbox name, or `sub` matches an enabled profile that belongs to an organization. The browser then holds an HMAC-signed cookie. Set `AIWALL_SESSION_SECRET` and the client secret env (default `OIDC_CLIENT_SECRET`) before turning this on.
+
+```yaml
+sso:
+  oidc:
+    enabled: true
+    issuer: https://idp.example.com/realms/acme
+    client_id: aiwall
+    client_secret_env: OIDC_CLIENT_SECRET
+    scopes: openid profile email
+    redirect_path: /auth/oidc/callback
+```
 | `log_raw_prompts` | boolean | `false` | Store prompt/response text in audit rows (opt-in). Detected secrets are always masked as `[REDACTED:<rule_id>]` before storage. When `true`, the `/prompts` viewer is available and shows a privacy warning banner. Can also be toggled from the Settings page (`settings-overrides.yaml`). |
 | `retention_days` | integer | `90` | Delete audit events older than this many days (purged on startup and when retention is saved in Settings). |
 | `org` | string | unset | Optional label copied onto each audit line (`"org":"homelab"`). Omitted from export when unset. Not a tenant or isolation boundary. 1–64 characters, no spaces or quotes. |
