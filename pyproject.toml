@@ -29,6 +29,9 @@ dev = [
 postgres = [
     "psycopg[binary]>=3.2",
 ]
+saml = [
+    "signxml>=4.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["backend"]

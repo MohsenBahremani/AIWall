@@ -216,8 +216,18 @@ class OidcConfig(BaseModel):
     redirect_path: str = "/auth/oidc/callback"
 
 
+class SamlConfig(BaseModel):
+    enabled: bool = False
+    idp_entity_id: str = ""
+    sso_url: str = ""
+    idp_cert: str = ""
+    sp_entity_id: str = "aiwall"
+    acs_path: str = "/auth/saml/acs"
+
+
 class SsoConfig(BaseModel):
     oidc: OidcConfig = Field(default_factory=OidcConfig)
+    saml: SamlConfig = Field(default_factory=SamlConfig)
     session_secret_env: str = "AIWALL_SESSION_SECRET"
 
 
@@ -282,6 +292,15 @@ class AIWallConfig(BaseModel):
                 seen_profiles.add(member.profile)
         if self.sso.oidc.enabled and (not self.sso.oidc.issuer or not self.sso.oidc.client_id):
             raise ValueError("sso.oidc.issuer and sso.oidc.client_id are required when OIDC is on")
+        if self.sso.saml.enabled and (
+            not self.sso.saml.idp_entity_id
+            or not self.sso.saml.sso_url
+            or not self.sso.saml.idp_cert.strip()
+        ):
+            raise ValueError(
+                "sso.saml.idp_entity_id, sso.saml.sso_url, and sso.saml.idp_cert "
+                "are required when SAML is on"
+            )
         for policy in self.policies:
             if policy.org is not None and policy.org not in seen_slugs:
                 raise ValueError(
