@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 - [docs/detecting-prompt-injection.md](docs/detecting-prompt-injection.md) walks one blocked injection from the gateway audit line through Wazuh 107217 and the PI-01 red-team hold.
 - `CONTRIBUTING.md`.
 - `logging.store` accepts a PostgreSQL URL (`postgresql+psycopg://...`). Schema creation and the queued audit insert use the same tables as SQLite. Install the driver with `pip install 'aiwall[postgres]'`.
+- Organizations, teams, and roles. A policy can name an `org`. Members exporting the audit log with their profile key only see that organization's rows. No organizations configured leaves the gateway single-tenant.
 
 ## [0.2.1] - 2026-10-24
 

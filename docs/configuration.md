@@ -196,6 +196,23 @@ Cost-based policies use a pre-forward estimate (prompt tokens + `max_tokens` / `
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `store` | string | `sqlite:///data/aiwall.db` | `sqlite:///...`, `postgresql+psycopg://user:pass@host:5432/aiwall` (`postgresql://` and `postgres://` use psycopg), or `none` to skip the audit file (lab only; profiles and approvals stay in memory). Postgres needs `pip install 'aiwall[postgres]'` |
+
+### `organizations`
+
+Optional. When the list is empty, AIWall stays a single tenant. A policy with `org: acme` applies only to callers in that organization. A policy with no `org` applies to every caller. A profile belongs to at most one organization. Members who call the audit export with their profile key see only that organization's rows. The gateway admin key still sees every row.
+
+```yaml
+organizations:
+  - slug: acme
+    name: Acme
+    teams:
+      - slug: security
+        name: Security
+    members:
+      - profile: ada
+        team: security
+        role: admin   # owner, admin, member, viewer
+```
 | `log_raw_prompts` | boolean | `false` | Store prompt/response text in audit rows (opt-in). Detected secrets are always masked as `[REDACTED:<rule_id>]` before storage. When `true`, the `/prompts` viewer is available and shows a privacy warning banner. Can also be toggled from the Settings page (`settings-overrides.yaml`). |
 | `retention_days` | integer | `90` | Delete audit events older than this many days (purged on startup and when retention is saved in Settings). |
 | `org` | string | unset | Optional label copied onto each audit line (`"org":"homelab"`). Omitted from export when unset. Not a tenant or isolation boundary. 1–64 characters, no spaces or quotes. |
