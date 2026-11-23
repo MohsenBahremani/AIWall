@@ -5,11 +5,12 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 DEFAULT_CONFIG_PATH = Path("aiwall.yaml")
 CONFIG_ENV_VAR = "AIWALL_CONFIG"
@@ -33,6 +34,15 @@ class PolicyConfig(BaseModel):
     when: str
     action: str
     enabled: bool = True
+    org: str | None = None
+
+    @field_validator("org", mode="before")
+    @classmethod
+    def _normalize_policy_org(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
 
 class LoggingConfig(BaseModel):
@@ -171,11 +181,42 @@ class RateLimitConfig(BaseModel):
     apply_without_profile: bool = True
 
 
+class TeamConfig(BaseModel):
+    slug: str
+    name: str
+
+
+class MemberConfig(BaseModel):
+    profile: str
+    role: str = "member"
+    team: str | None = None
+
+    @field_validator("team", mode="before")
+    @classmethod
+    def _normalize_team(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+
+class OrganizationConfig(BaseModel):
+    slug: str
+    name: str
+    teams: list[TeamConfig] = Field(default_factory=list)
+    members: list[MemberConfig] = Field(default_factory=list)
+
+
+_ORG_ROLES = frozenset({"owner", "admin", "member", "viewer"})
+_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+
+
 class AIWallConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
     providers: list[ProviderConfig] = Field(default_factory=list)
     presets: list[str] = Field(default_factory=list)
     policies: list[PolicyConfig] = Field(default_factory=list)
+    organizations: list[OrganizationConfig] = Field(default_factory=list)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     pricing: PricingConfig = Field(default_factory=PricingConfig)
     gateway_auth: GatewayAuthConfig = Field(default_factory=GatewayAuthConfig)
@@ -186,6 +227,50 @@ class AIWallConfig(BaseModel):
     cors: CorsConfig = Field(default_factory=CorsConfig)
     scanners: ScannerConfig = Field(default_factory=ScannerConfig)
     rate_limits: RateLimitConfig = Field(default_factory=RateLimitConfig)
+
+    @model_validator(mode="after")
+    def _check_organizations(self) -> AIWallConfig:
+        seen_slugs: set[str] = set()
+        seen_profiles: set[str] = set()
+        for org in self.organizations:
+            if _SLUG.fullmatch(org.slug) is None:
+                raise ValueError(
+                    f"organization slug {org.slug!r} must be lowercase words and dashes"
+                )
+            if org.slug in seen_slugs:
+                raise ValueError(f"duplicate organization slug {org.slug!r}")
+            seen_slugs.add(org.slug)
+            team_slugs: set[str] = set()
+            for team in org.teams:
+                if _SLUG.fullmatch(team.slug) is None:
+                    raise ValueError(
+                        f"team slug {team.slug!r} must be lowercase words and dashes"
+                    )
+                if team.slug in team_slugs:
+                    raise ValueError(
+                        f"duplicate team {team.slug!r} in organization {org.slug!r}"
+                    )
+                team_slugs.add(team.slug)
+            for member in org.members:
+                if member.role not in _ORG_ROLES:
+                    raise ValueError(
+                        f"role {member.role!r} must be one of {sorted(_ORG_ROLES)}"
+                    )
+                if member.team is not None and member.team not in team_slugs:
+                    raise ValueError(
+                        f"member {member.profile!r} references unknown team {member.team!r}"
+                    )
+                if member.profile in seen_profiles:
+                    raise ValueError(
+                        f"profile {member.profile!r} belongs to more than one organization"
+                    )
+                seen_profiles.add(member.profile)
+        for policy in self.policies:
+            if policy.org is not None and policy.org not in seen_slugs:
+                raise ValueError(
+                    f"policy {policy.name!r} references unknown org {policy.org!r}"
+                )
+        return self
 
 
 def resolve_config_path(path: Path | str | None = None) -> Path:

@@ -12,18 +12,22 @@ from dataclasses import dataclass
 from fastapi import HTTPException, Request
 
 from app.config import AIWallConfig
+from app.orgs.directory import membership_for_profile
 from app.profiles.store import ProfileStore, hash_api_key
 
 
 @dataclass(frozen=True)
 class GatewayIdentity:
-    """Resolved caller identity for audit attribution and future policy context."""
+    """Resolved caller identity for audit attribution and organization scope."""
 
     user_id: str | None = None
     profile_id: int | None = None
     profile_name: str | None = None
     role: str | None = None
     is_gateway_admin: bool = False
+    organization_slug: str | None = None
+    team_slug: str | None = None
+    org_role: str | None = None
 
 
 def _extract_bearer_token(headers: Mapping[str, str]) -> str | None:
@@ -43,17 +47,22 @@ def gateway_auth_enabled(config: AIWallConfig) -> bool:
 def resolve_profile_from_api_key(
     profile_store: ProfileStore | None,
     api_key: str,
+    config: AIWallConfig | None = None,
 ) -> GatewayIdentity | None:
     if profile_store is None or not api_key:
         return None
     profile = profile_store.get_by_api_key_hash(hash_api_key(api_key))
     if profile is None or not profile.enabled:
         return None
+    membership = membership_for_profile(config, profile.name) if config is not None else None
     return GatewayIdentity(
         user_id=str(profile.id),
         profile_id=profile.id,
         profile_name=profile.name,
         role=profile.role,
+        organization_slug=None if membership is None else membership.organization_slug,
+        team_slug=None if membership is None else membership.team_slug,
+        org_role=None if membership is None else membership.role,
     )
 
 
@@ -74,7 +83,7 @@ def authenticate_gateway(
 
     if not config.gateway_auth.enabled:
         if provided_key:
-            identity = resolve_profile_from_api_key(profile_store, provided_key)
+            identity = resolve_profile_from_api_key(profile_store, provided_key, config)
             if identity is not None:
                 return identity
         return GatewayIdentity()
@@ -89,7 +98,7 @@ def authenticate_gateway(
     if expected_key and secrets.compare_digest(provided_key, expected_key):
         return GatewayIdentity(is_gateway_admin=True)
 
-    identity = resolve_profile_from_api_key(profile_store, provided_key)
+    identity = resolve_profile_from_api_key(profile_store, provided_key, config)
     if identity is not None:
         return identity
 
