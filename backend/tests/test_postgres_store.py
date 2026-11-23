@@ -49,10 +49,10 @@ def test_postgres_url_selects_the_postgres_dialect() -> None:
 
 def test_audit_insert_sql_uses_the_dialect_marker() -> None:
     qmark = audit_insert_sql("qmark")
-    assert qmark.count("?") == 22
+    assert qmark.count("?") == 23
     assert "%s" not in qmark
     pyformat = audit_insert_sql("pyformat")
-    assert pyformat.count("%s") == 22
+    assert pyformat.count("%s") == 23
     assert "?" not in pyformat
 
 
