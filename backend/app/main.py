@@ -22,6 +22,7 @@ from app.agents.routes import create_approvals_router
 from app.alerts import RecordingNotifier, build_alert_dispatcher
 from app.alerts.heartbeat import HeartbeatMonitor
 from app.audit.writer import AuditWriter
+from app.auth.routes import router as auth_router
 from app.config import AIWallConfig, load_config, resolve_config_path
 from app.plugins.base import AIWallPlugin
 from app.plugins.loader import (
@@ -189,6 +190,7 @@ def create_app(
         return payload
 
     app.include_router(proxy_router)
+    app.include_router(auth_router)
     app.include_router(create_approvals_router())
     _register_web(app)
     register_plugins(app, config, resolved_plugins)
