@@ -50,6 +50,7 @@ _AUDIT_INSERT_COLUMNS = (
     "raw_prompt",
     "raw_response",
     "org",
+    "organization_slug",
 )
 
 
@@ -78,6 +79,7 @@ class AuditEvent:
     latency_ms: float
     user_id: str | None = None
     org: str | None = None
+    organization_slug: str | None = None
     app_id: str | None = None
     estimated_cost: float | None = None
     prompt_tokens: int | None = None
@@ -383,6 +385,7 @@ class AuditWriter:
             event.raw_prompt,
             event.raw_response,
             event.org,
+            event.organization_slug,
         )
 
     def _write_batch_orm(
@@ -417,6 +420,7 @@ class AuditWriter:
             request_id=event.request_id,
             user_id=event.user_id,
             org=event.org,
+            organization_slug=event.organization_slug,
             app_id=event.app_id,
             provider=event.provider,
             model=event.model,
@@ -505,6 +509,7 @@ class AuditWriter:
         decision: str | None = None,
         provider: str | None = None,
         user_id: str | None = None,
+        organization_slug: str | None = None,
     ) -> list[AuditEventRow]:
         page = self.search_events(
             limit=limit,
@@ -512,6 +517,7 @@ class AuditWriter:
             decision=decision,
             provider=provider,
             user_id=user_id,
+            organization_slug=organization_slug,
         )
         return list(page.events)
 
@@ -524,6 +530,7 @@ class AuditWriter:
         provider: str | None = None,
         model: str | None = None,
         user_id: str | None = None,
+        organization_slug: str | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
         has_raw_prompt: bool = False,
@@ -545,6 +552,8 @@ class AuditWriter:
             filters.append(AuditEventRow.model == model)
         if user_id:
             filters.append(AuditEventRow.user_id == user_id)
+        if organization_slug is not None:
+            filters.append(AuditEventRow.organization_slug == organization_slug)
         if since is not None:
             filters.append(AuditEventRow.timestamp >= since)
         if until is not None:
@@ -573,6 +582,7 @@ class AuditWriter:
         provider: str | None = None,
         model: str | None = None,
         user_id: str | None = None,
+        organization_slug: str | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
     ) -> FilteredEventSummary:
@@ -588,6 +598,8 @@ class AuditWriter:
             filters.append(AuditEventRow.model == model)
         if user_id:
             filters.append(AuditEventRow.user_id == user_id)
+        if organization_slug is not None:
+            filters.append(AuditEventRow.organization_slug == organization_slug)
         if since is not None:
             filters.append(AuditEventRow.timestamp >= since)
         if until is not None:

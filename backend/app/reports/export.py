@@ -48,6 +48,7 @@ class ExportFilters:
     model: str | None = None
     profile: str | None = None
     window_hours: int = 24
+    organization_slug: str | None = None
 
     def query_params(self) -> dict[str, str]:
         params: dict[str, str] = {"window_hours": str(self.window_hours)}
@@ -133,6 +134,7 @@ def build_event_export(
         provider=filters.provider or None,
         model=filters.model or None,
         user_id=filters.profile or None,
+        organization_slug=filters.organization_slug,
         since=since,
     )
     events = tuple(row_to_export_dict(row) for row in page.events)
@@ -144,6 +146,7 @@ def build_event_export(
             provider=filters.provider or None,
             model=filters.model or None,
             user_id=filters.profile or None,
+            organization_slug=filters.organization_slug,
             since=since,
         )
         decision_counts = dict(agg.decision_counts)

@@ -105,6 +105,7 @@ def _migrate_audit_schema(engine: Engine) -> None:
         "matched_rule_ids": "TEXT",
         "categories": "TEXT",
         "org": "TEXT",
+        "organization_slug": "TEXT",
     }
     existing = _column_names(engine, "audit_events")
     if not existing:

@@ -373,6 +373,25 @@ def create_web_router(templates: Jinja2Templates) -> APIRouter:
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
+    def _organization_scope(request: Request) -> str | None:
+        """Org members only see their own audit rows. Admin and homelab see all."""
+        from app.auth.gateway import authenticate_gateway
+
+        authorization = request.headers.get("authorization")
+        if not authorization:
+            return None
+        try:
+            identity = authenticate_gateway(
+                request.app.state.config,
+                request,
+                getattr(request.app.state, "profile_store", None),
+            )
+        except HTTPException:
+            return None
+        if identity.is_gateway_admin:
+            return None
+        return identity.organization_slug
+
     def _build_filtered_export(
         request: Request,
         *,
@@ -393,6 +412,7 @@ def create_web_router(templates: Jinja2Templates) -> APIRouter:
             model=model or None,
             profile=selected_profile,
             window_hours=window_hours,
+            organization_slug=_organization_scope(request),
         )
         return build_event_export(audit_writer, filters, limit=DEFAULT_EXPORT_LIMIT)
 

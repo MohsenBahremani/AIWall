@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from app.agents.extract import extract_agent_actions_from_body
 from app.audit.writer import AuditEvent, AuditWriter
 from app.config import AIWallConfig, ScannerConfig
+from app.orgs.directory import current_organization
 from app.scanners.secrets import redact_request_body, redact_response_body
 
 
@@ -128,6 +129,7 @@ def log_proxy_event(
             request_id=request_id,
             user_id=user_id,
             org=config.logging.org,
+            organization_slug=current_organization.get(),
             provider=provider_name,
             model=model,
             decision=decision,

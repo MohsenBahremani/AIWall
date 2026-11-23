@@ -26,6 +26,7 @@ class AuditEventRow(Base):
     request_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     org: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    organization_slug: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     app_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     provider: Mapped[str] = mapped_column(String(64), nullable=False)
     model: Mapped[str] = mapped_column(String(128), nullable=False)
