@@ -26,13 +26,13 @@ from app.alerts.dispatcher import (
     triggers_for_warn,
 )
 from app.audit.helpers import log_proxy_event, measure_input_length, new_request_id
-from app.orgs.directory import current_organization
 from app.audit.writer import AuditWriter
 from app.auth.gateway import GatewayIdentity, gateway_auth_enabled, strip_client_authorization
 from app.budgets import BudgetCheckContext, BudgetChecker, run_budget_checkers
 from app.classifiers.categories import CategoryResult, classify_request_body
 from app.classifiers.injection import classify_injection_request_body
 from app.config import AIWallConfig
+from app.orgs.directory import current_organization
 from app.policies.context import PolicyContext
 from app.policies.engine import PolicyEngine, PolicyResult
 from app.policies.responses import policy_blocked_response, privacy_safe_headers
