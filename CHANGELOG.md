@@ -15,6 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions align w
 - `logging.store` accepts a PostgreSQL URL (`postgresql+psycopg://...`). Schema creation and the queued audit insert use the same tables as SQLite. Install the driver with `pip install 'aiwall[postgres]'`.
 - Organizations, teams, and roles. A policy can name an `org`. Members exporting the audit log with their profile key only see that organization's rows. No organizations configured leaves the gateway single-tenant.
 - OpenID Connect login. `/auth/oidc/login` follows the issuer discovery document and accepts the callback only for an organization member. The session cookie is HMAC-signed with `AIWALL_SESSION_SECRET`.
+- SAML login. `/auth/saml/acs` accepts an assertion only when `signxml` verifies it against `sso.saml.idp_cert`. Install with `pip install 'aiwall[saml]'`.
 
 ## [0.2.1] - 2026-10-24
 

@@ -228,6 +228,24 @@ sso:
     scopes: openid profile email
     redirect_path: /auth/oidc/callback
 ```
+
+### `sso.saml`
+
+Optional. Install the verifier with `pip install 'aiwall[saml]'`. `/auth/saml/login` sends the browser to the IdP. `/auth/saml/acs` accepts the POST only when the assertion is signed by `idp_cert` and its issuer is `idp_entity_id`. An unsigned response is rejected. The NameID must match an enabled profile in an organization. The session cookie is the same one OIDC uses.
+
+```yaml
+sso:
+  saml:
+    enabled: true
+    idp_entity_id: https://idp.example.com
+    sso_url: https://idp.example.com/sso
+    idp_cert: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    sp_entity_id: aiwall
+    acs_path: /auth/saml/acs
+```
 | `log_raw_prompts` | boolean | `false` | Store prompt/response text in audit rows (opt-in). Detected secrets are always masked as `[REDACTED:<rule_id>]` before storage. When `true`, the `/prompts` viewer is available and shows a privacy warning banner. Can also be toggled from the Settings page (`settings-overrides.yaml`). |
 | `retention_days` | integer | `90` | Delete audit events older than this many days (purged on startup and when retention is saved in Settings). |
 | `org` | string | unset | Optional label copied onto each audit line (`"org":"homelab"`). Omitted from export when unset. Not a tenant or isolation boundary. 1–64 characters, no spaces or quotes. |
