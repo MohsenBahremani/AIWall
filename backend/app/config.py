@@ -207,6 +207,20 @@ class OrganizationConfig(BaseModel):
     members: list[MemberConfig] = Field(default_factory=list)
 
 
+class OidcConfig(BaseModel):
+    enabled: bool = False
+    issuer: str = ""
+    client_id: str = ""
+    client_secret_env: str = "OIDC_CLIENT_SECRET"
+    scopes: str = "openid profile email"
+    redirect_path: str = "/auth/oidc/callback"
+
+
+class SsoConfig(BaseModel):
+    oidc: OidcConfig = Field(default_factory=OidcConfig)
+    session_secret_env: str = "AIWALL_SESSION_SECRET"
+
+
 _ORG_ROLES = frozenset({"owner", "admin", "member", "viewer"})
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 
@@ -217,6 +231,7 @@ class AIWallConfig(BaseModel):
     presets: list[str] = Field(default_factory=list)
     policies: list[PolicyConfig] = Field(default_factory=list)
     organizations: list[OrganizationConfig] = Field(default_factory=list)
+    sso: SsoConfig = Field(default_factory=SsoConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     pricing: PricingConfig = Field(default_factory=PricingConfig)
     gateway_auth: GatewayAuthConfig = Field(default_factory=GatewayAuthConfig)
@@ -265,6 +280,8 @@ class AIWallConfig(BaseModel):
                         f"profile {member.profile!r} belongs to more than one organization"
                     )
                 seen_profiles.add(member.profile)
+        if self.sso.oidc.enabled and (not self.sso.oidc.issuer or not self.sso.oidc.client_id):
+            raise ValueError("sso.oidc.issuer and sso.oidc.client_id are required when OIDC is on")
         for policy in self.policies:
             if policy.org is not None and policy.org not in seen_slugs:
                 raise ValueError(
